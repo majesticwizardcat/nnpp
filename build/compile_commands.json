@@ -1,0 +1,22 @@
+[
+{
+  "directory": "/Users/loukoum13/ps/nnpp/build/tests",
+  "command": "/usr/bin/clang++  -I/Users/loukoum13/ps/nnpp/source -g -arch arm64 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX11.3.sdk -std=gnu++17 -o CMakeFiles/PercTest.dir/perc-test.cpp.o -c /Users/loukoum13/ps/nnpp/tests/perc-test.cpp",
+  "file": "/Users/loukoum13/ps/nnpp/tests/perc-test.cpp"
+},
+{
+  "directory": "/Users/loukoum13/ps/nnpp/build/tests",
+  "command": "/usr/bin/clang++  -I/Users/loukoum13/ps/nnpp/source -g -arch arm64 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX11.3.sdk -std=gnu++17 -o CMakeFiles/MainTest.dir/main-test.cpp.o -c /Users/loukoum13/ps/nnpp/tests/main-test.cpp",
+  "file": "/Users/loukoum13/ps/nnpp/tests/main-test.cpp"
+},
+{
+  "directory": "/Users/loukoum13/ps/nnpp/build/tests",
+  "command": "/usr/bin/clang++  -I/Users/loukoum13/ps/nnpp/source -g -arch arm64 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX11.3.sdk -std=gnu++17 -o CMakeFiles/NNAiTest.dir/nnai-test.cpp.o -c /Users/loukoum13/ps/nnpp/tests/nnai-test.cpp",
+  "file": "/Users/loukoum13/ps/nnpp/tests/nnai-test.cpp"
+},
+{
+  "directory": "/Users/loukoum13/ps/nnpp/build/tests",
+  "command": "/usr/bin/clang++  -I/Users/loukoum13/ps/nnpp/source -g -arch arm64 -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX11.3.sdk -std=gnu++17 -o CMakeFiles/NNTest.dir/nn-test.cpp.o -c /Users/loukoum13/ps/nnpp/tests/nn-test.cpp",
+  "file": "/Users/loukoum13/ps/nnpp/tests/nn-test.cpp"
+}
+]

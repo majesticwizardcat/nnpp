@@ -1,0 +1,2 @@
+/usr/bin/ar qc libNNPPCore.a CMakeFiles/NNPPCore.dir/nnpp.cpp.o
+/usr/bin/ranlib libNNPPCore.a
