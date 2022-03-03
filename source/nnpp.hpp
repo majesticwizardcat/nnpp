@@ -18,6 +18,8 @@ typedef unsigned long long ulong;
 static const char* FILE_EXT = "nnpp";
 static const float MUTATION_CHANCE = 0.05f;
 static const uint MAX_NEURONS_PER_LAYER = 1000;
+static const uint LAYER_EXTRAS = 3;
+static const float EXTRAS_PROB = 0.3f;
 
 inline float normalize(float value, float min, float max) {
 	return (value - min) / (max - min);
@@ -74,8 +76,7 @@ public:
 
 	void initFromParents(const NeuralNetwork<T>& n0, const NeuralNetwork<T>& n1, float mutationChance,
 		const T& minValue, const T& maxValue) {
-		assert(n0.m_dataSize == n1.m_dataSize);
-		assert(n0.m_layerSizes == n1.m_layerSizes);
+		assert(n0.m_layerSizes.size() == n1.m_layerSizes.size());
 
 		std::uniform_real_distribution<float> realDist(0.0f, 1.0f);
 		std::uniform_real_distribution<T> mutationValueDist(minValue, maxValue);
@@ -84,17 +85,44 @@ public:
 		const T* dataN1 = n1.m_data.get();
 
 		clearAll();
-		m_dataSize = n0.m_dataSize;
-		m_layerSizes = n0.m_layerSizes;
-		m_data = std::make_unique<T[]>(m_dataSize);
-
-		for (ulong i = 0; i < m_dataSize; ++i) {
-			float mutation = realDist(dev);
-			if (mutation <= mutationChance) {
-				m_data[i] = mutationValueDist(dev);
+		
+		std::vector<uint> minLayerSizes(n0.m_layerSizes.size());
+		m_layerSizes.resize(n0.m_layerSizes.size());
+		for (uint i = 0; i < n0.m_layerSizes.size(); ++i) {
+			if (i > 0 && i < n0.m_layerSizes.size() - 1) {
+				uint extras = realDist(dev) < EXTRAS_PROB ? static_cast<uint>((LAYER_EXTRAS + 1) * realDist(dev)) : 0;
+				m_layerSizes[i] = (n0.m_layerSizes[i] + n1.m_layerSizes[i]) / 2;
+				if (realDist(dev) < 0.5f) {
+					m_layerSizes[i] += extras;
+				}
+				else if (m_layerSizes[i] > extras) {
+					m_layerSizes[i] -= extras;
+				}
+				else {
+					m_layerSizes[i] = 1;
+				}
 			}
 			else {
-				m_data[i] = realDist(dev) > 0.5f ? dataN0[i] : dataN1[i];
+				m_layerSizes[i] = n0.m_layerSizes[i];
+			}
+			minLayerSizes[i] = std::min(m_layerSizes[i], std::min(n0.m_layerSizes[i], n1.m_layerSizes[i]));
+		}
+
+		m_dataSize = calculateDataSize();
+		m_data = std::make_unique<T[]>(m_dataSize);
+
+		for (uint tl = 1; tl < m_layerSizes.size(); ++tl) {
+			for (uint tn = 0; tn < m_layerSizes[tl]; ++tn) {
+				for (uint fn = 0; fn < m_layerSizes[tl - 1]; ++fn) {
+					T* weightPtr = weightPtrAt(fn, tn, tl);
+					float mutation = realDist(dev);
+					if (mutation < mutationChance || tn >= minLayerSizes[tl] || fn >= minLayerSizes[tl - 1]) {
+						*weightPtr = mutationValueDist(dev);
+					}
+					else {
+						*weightPtr = realDist(dev) < 0.5f ? n0.weightAt(fn, tn, tl) : n1.weightAt(fn, tn, tl);
+					}
+				}
 			}
 		}
 	}
@@ -210,6 +238,14 @@ public:
 		return true;
 	}
 
+	inline void printLayerSizes() const {
+		std::cout << "{ ";
+		for (uint l : m_layerSizes) {
+			std::cout << l << ' ';
+		}
+		std::cout << "}" << '\n';
+	}
+
 	inline void printData() const {
 		for (uint i = 1; i < m_layerSizes.size(); ++i) {
 			for (uint n = 0; n < m_layerSizes[i]; ++n) {
@@ -234,7 +270,7 @@ private:
 			+ toNeuron;
 	}
 
-	inline T weightAt(uint fromNeuron, uint toNeuron, uint toLayer) const {
+	inline const T& weightAt(uint fromNeuron, uint toNeuron, uint toLayer) const {
 		return m_data[weightIndex(fromNeuron, toNeuron, toLayer)];
 	}
 
@@ -261,7 +297,7 @@ private:
 		}
 	}
 
-	inline T calculateValue(uint neuron, uint layer, NeuronsArray* const neurons) const {
+	inline const T calculateValue(uint neuron, uint layer, NeuronsArray* const neurons) const {
 		assert(layer >= 1);
 		T value = 0;
 		for (uint n = 0; n < m_layerSizes[layer - 1]; ++n) {
@@ -457,6 +493,12 @@ public:
 
 	inline bool operator>(const NNAi& other) const {
 		return m_score > other.m_score;
+	}
+
+	inline void printLayerSizes() const {
+		for (const auto& nn : m_networks) {
+			nn.printLayerSizes();
+		}
 	}
 
 private:
