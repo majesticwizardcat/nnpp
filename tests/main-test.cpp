@@ -8,14 +8,14 @@ int main() {
 	std::cout << "Running test Main test..." << '\n';
 	const float minValue = -10.0f;
 	const float maxValue = 10.0f;
-	std::vector<std::vector<uint>> layers = { { 4, 30, 20, 35, 50, 30, 1 } };
+	std::vector<std::vector<uint>> layers = { { 4, 30, 20, 35, 50, 30, 10, 1 } };
 	NNPopulation<float> nnp("test", 300, layers, minValue, maxValue);
 	nnp.createRandom(minValue, maxValue);
-	std::vector<float> input0 = { 0.0f, 0.0f, 1.0f, 1.0f };
+	std::vector<float> input0 = { 0.0f, 0.0f, 0.0f, 0.0f };
 	std::vector<float> input1 = { 1.0f, 0.0f, 1.0f, 1.0f };
-	std::vector<float> input2 = { 0.0f, 1.0f, 1.0f, 1.0f };
+	std::vector<float> input2 = { 0.0f, 1.0f, 1.0f, 0.0f };
 	std::vector<float> input3 = { 1.0f, 1.0f, 1.0f, 1.0f };
-	std::vector<float> exp0 = { 1.5f };
+	std::vector<float> exp0 = { -10.5f };
 	std::vector<float> exp1 = { 2.6f };
 	std::vector<float> exp2 = { 3.7f };
 	std::vector<float> exp3 = { 4.8f };

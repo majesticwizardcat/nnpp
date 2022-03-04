@@ -7,6 +7,7 @@ int main() {
 
 	nnai.initRandomUniform(0.0f, 1.0f);
 	nnai.initVal(1.0f);
+	nnai.initBiasesVal(0.0f);
 
 	std::vector<float> out;
 	std::vector<float> input0 = { 1.0f };

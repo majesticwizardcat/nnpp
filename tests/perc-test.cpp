@@ -8,7 +8,8 @@ int main() {
 	std::vector<float> data = { 1.0f, 2.0f, 3.0f,
 								-1.0f, 0.5f, 0.0f,
 								1.5f, 4.0f, -1.0f };
-	nn.initData(data);
+	std::vector<float> biases = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+	nn.initData(data, biases);
 	nn.printData();
 	std::cout << "---------" << '\n';
 

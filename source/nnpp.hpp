@@ -17,8 +17,8 @@ typedef unsigned long long ulong;
 
 static const char* FILE_EXT = "nnpp";
 static const float MUTATION_CHANCE = 0.05f;
-static const uint MAX_NEURONS_PER_LAYER = 1000;
-static const uint LAYER_EXTRAS = 3;
+static const uint MAX_NEURONS_PER_LAYER = 512;
+static const uint LAYER_EXTRAS = 5;
 static const float EXTRAS_PROB = 0.3f;
 
 inline float normalize(float value, float min, float max) {
@@ -37,24 +37,28 @@ public:
 	NeuralNetwork(const std::vector<uint>& layers) :
 		m_layerSizes(layers),
 		m_dataSize(0),
-		m_data(nullptr) {
+		m_data(nullptr),
+		m_neuronBiases(nullptr) {
 		if (layers.size() < 3) {
 			std::cout << "Cannot init nn with less than 3 layers" << '\n';
 			return;
 		}
 		m_dataSize = calculateDataSize();
 		m_data = std::make_unique<T[]>(m_dataSize);
+		m_neuronBiases = std::make_unique<T[]>(getNeuronsNum());
 	}
 
 	NeuralNetwork(NeuralNetwork&& other) :
 		m_layerSizes(std::move(other.m_layerSizes)),
 		m_dataSize(std::move(other.m_dataSize)),
-		m_data(std::move(other.m_data)) {
+		m_data(std::move(other.m_data)),
+		m_neuronBiases(std::move(other.m_neuronBiases)) {
 	}
 
 	NeuralNetwork(const std::string& location) :
 		m_dataSize(0),
-		m_data(nullptr) {
+		m_data(nullptr),
+		m_neuronBiases(nullptr) {
 		if (!loadFromFile(location)) {
 			std::cout << "Could not load from file" << '\n';
 			assert(false);
@@ -63,7 +67,8 @@ public:
 
 	NeuralNetwork(std::ifstream* const stream) :
 		m_dataSize(0),
-		m_data(nullptr) {
+		m_data(nullptr),
+		m_neuronBiases(nullptr) {
 		if (!readFromStream(stream)) {
 			std::cout << "Could not read from stream" << '\n';
 		}
@@ -83,6 +88,8 @@ public:
 		std::random_device dev;
 		const T* dataN0 = n0.m_data.get();
 		const T* dataN1 = n1.m_data.get();
+		const T* biasesN0 = n0.m_neuronBiases.get();
+		const T* biasesN1 = n1.m_neuronBiases.get();
 
 		clearAll();
 		
@@ -110,6 +117,7 @@ public:
 
 		m_dataSize = calculateDataSize();
 		m_data = std::make_unique<T[]>(m_dataSize);
+		m_neuronBiases = std::make_unique<T[]>(getNeuronsNum());
 
 		for (uint tl = 1; tl < m_layerSizes.size(); ++tl) {
 			for (uint tn = 0; tn < m_layerSizes[tl]; ++tn) {
@@ -125,18 +133,45 @@ public:
 				}
 			}
 		}
+
+		for (uint l = 0; l < m_layerSizes.size(); ++l) {
+			for (uint n = 0; n < m_layerSizes[l]; ++n) {
+				T* biasPtr = neuronBiasPtrAt(n, l);
+				float mutation = realDist(dev);
+				if (mutation < mutationChance || n >= minLayerSizes[l]) {
+					*biasPtr = mutationValueDist(dev);
+				}
+				else {
+					*biasPtr = realDist(dev) < 0.5f ? n0.neuronBiasAt(n, l) : n1.neuronBiasAt(n, l);
+				}
+			}
+		}
 	}
 
 	void initDataVal(const T& val) {
 		for (ulong i = 0; i < m_dataSize; ++i) {
 			m_data[i] = val;
 		}
+		initBiasesVal(val);
 	}
 
-	void initData(const std::vector<T>& data) {
+	void initBiasesVal(const T& val) {
+		uint biasesNum = getNeuronsNum();
+		for (uint i = 0; i < biasesNum; ++i) {
+			m_neuronBiases[i] = val;
+		}
+	}
+
+	void initData(const std::vector<T>& data, const std::vector<T>& biases) {
 		assert(data.size() == m_dataSize);
+		assert(biases.size() == getNeuronsNum());
 		for (ulong i = 0; i < m_dataSize; ++i) {
 			m_data[i] = data[i];
+		}
+
+		uint biasesNum = getNeuronsNum();
+		for (uint i = 0; i < biasesNum; ++i) {
+			m_neuronBiases[i] = biases[i];
 		}
 	}
 
@@ -144,11 +179,20 @@ public:
 		return m_dataSize;
 	}
 
+	inline uint getNeuronsNum() const {
+		return std::accumulate(m_layerSizes.begin(), m_layerSizes.end(), 0);
+	}
+
 	void randomizeDataUniform(const T& min, const T& max) {
 		std::uniform_real_distribution<T> dist(min, max);
 		std::random_device dev;
 		for (ulong i = 0; i < m_dataSize; ++i) {
 			m_data[i] = dist(dev);
+		}
+
+		uint biasesNum = getNeuronsNum();
+		for (uint i = 0; i < biasesNum; ++i) {
+			m_neuronBiases[i] = dist(dev);
 		}
 	}
 
@@ -158,17 +202,18 @@ public:
 		}
 
 		uint size = m_layerSizes.size();
-		if (!saveFile->write((char *) &size, sizeof(uint))) {
+		if (!saveFile->write(reinterpret_cast<const char*>(&size), sizeof(uint))) {
 			return false;
 		}
 
-		for (const auto& l : m_layerSizes) {
-			if (!saveFile->write((char *) &l, sizeof(l))) {
+		for (uint l : m_layerSizes) {
+			if (!saveFile->write(reinterpret_cast<const char*>(&l), sizeof(l))) {
 				return false;
 			}
 		}
 
-		if (!saveFile->write((char *) m_data.get(), sizeof(T) * m_dataSize)) {
+		if (!saveFile->write(reinterpret_cast<const char*>(m_data.get()), sizeof(T) * m_dataSize)
+			|| !saveFile->write(reinterpret_cast<const char*>(m_neuronBiases.get()), sizeof(T) * getNeuronsNum())) {
 			return false;
 		}
 		return true;
@@ -187,20 +232,23 @@ public:
 		}
 
 		uint layers;
-		if (!file->read((char *) &layers, sizeof(uint))) {
+		if (!file->read(reinterpret_cast<char*>(&layers), sizeof(uint))) {
 			return false;
 		}
 		for (uint l = 0; l < layers; ++l) {
 			uint cur = 0;
-			if (!file->read((char *) &cur, sizeof(uint))) {
+			if (!file->read(reinterpret_cast<char*>(&cur), sizeof(uint))) {
 				return false;
 			}
 			m_layerSizes.push_back(cur);
 		}
 
+		uint biases = getNeuronsNum();
 		m_dataSize = calculateDataSize();
 		m_data = std::make_unique<T[]>(m_dataSize);
-		if (!file->read((char *) m_data.get(), sizeof(T) * m_dataSize)) {
+		m_neuronBiases = std::make_unique<T[]>(biases);
+		if (!file->read(reinterpret_cast<char*>(m_data.get()), sizeof(T) * m_dataSize)
+			|| !file->read(reinterpret_cast<char*>(m_neuronBiases.get()), sizeof(T) * biases)) {
 			return false;
 		}
 		return true;
@@ -215,6 +263,7 @@ public:
 		m_dataSize = 0;
 		m_layerSizes.clear();
 		m_data.release();
+		m_neuronBiases.release();
 	}
 
 	std::vector<T> feed(const std::vector<T>& input) const {
@@ -258,6 +307,7 @@ private:
 	ulong m_dataSize;
 	std::vector<uint> m_layerSizes;
 	std::unique_ptr<T[]> m_data;
+	std::unique_ptr<T[]> m_neuronBiases;
 
 	inline uint weightIndex(uint fromNeuron, uint toNeuron, uint toLayer) const {
 		assert(toLayer > 0);
@@ -270,29 +320,45 @@ private:
 			+ toNeuron;
 	}
 
+	inline uint neuronBiasIndex(uint neuron, uint layer) const {
+		assert(layer >= 0);
+		assert(layer < m_layerSizes.size());
+		assert(std::accumulate(m_layerSizes.begin(), m_layerSizes.begin() + layer, neuron) < getNeuronsNum());
+		return std::accumulate(m_layerSizes.begin(), m_layerSizes.begin() + layer, neuron);
+	}
+
 	inline const T& weightAt(uint fromNeuron, uint toNeuron, uint toLayer) const {
 		return m_data[weightIndex(fromNeuron, toNeuron, toLayer)];
+	}
+
+	inline const T& neuronBiasAt(uint neuron, uint layer) const {
+		return m_neuronBiases[neuronBiasIndex(neuron, layer)];
 	}
 
 	inline T* weightPtrAt(uint fromNeuron, uint toNeuron, uint toLayer) const {
 		return m_data.get() + weightIndex(fromNeuron, toNeuron, toLayer);
 	}
 
+	inline T* neuronBiasPtrAt(uint neuron, uint layer) const {
+		return m_neuronBiases.get() + neuronBiasIndex(neuron, layer);
+	}
+
 	inline void latchInputs(const std::vector<T>& inputs, NeuronsArray* const neurons) const {
 		assert(m_layerSizes.size() >= 3);
 		assert(inputs.size() == *m_layerSizes.begin());
 		for (uint i = 0; i < inputs.size(); ++i) {
-			(*neurons)[i] = inputs[i];
+			(*neurons)[i] = inputs[i] + neuronBiasAt(i, 0);
 		}
 	}
 
 	inline void propagate(NeuronsArray* const neurons) const {
-		for (uint i = 1; i < m_layerSizes.size(); ++i) {
-			for (uint n = 0; n < m_layerSizes[i]; ++n) {
-				(*neurons)[MAX_NEURONS_PER_LAYER + n] = calculateValue(n, i, neurons); // Save to second half
+		for (uint l = 1; l < m_layerSizes.size(); ++l) {
+			for (uint n = 0; n < m_layerSizes[l]; ++n) {
+				(*neurons)[MAX_NEURONS_PER_LAYER + n] 
+					= calculateValue(n, l, neurons) + neuronBiasAt(n, l); // Save to second half
 			}
 			std::copy(neurons->begin() + MAX_NEURONS_PER_LAYER,
-					  neurons->begin() + MAX_NEURONS_PER_LAYER + m_layerSizes[i],
+					  neurons->begin() + MAX_NEURONS_PER_LAYER + m_layerSizes[l],
 					  neurons->begin());
 		}
 	}
@@ -378,6 +444,12 @@ public:
 		}
 	}
 
+	void initBiasesVal(const T& val) {
+		for (auto& nn : m_networks) {
+			nn.initBiasesVal(val);
+		}
+	}
+
 	void initFromParents(const NNAi& nnai0, const NNAi& nnai1, float mutationChance,
 		const T& minValue, const T& maxValue) {
 		assert(nnai0.getNetworksNumber() == nnai1.getNetworksNumber());
@@ -400,9 +472,9 @@ public:
 		}
 
 		uint nets = m_networks.size();
-		if (!file->write((char *) &nets, sizeof(uint))
-			|| !file->write((char *) &m_sessionsTrained, sizeof(uint))
-			|| !file->write((char *) &m_score, sizeof(float))) {
+		if (!file->write(reinterpret_cast<const char*>(&nets), sizeof(uint))
+			|| !file->write(reinterpret_cast<const char*>(&m_sessionsTrained), sizeof(uint))
+			|| !file->write(reinterpret_cast<const char*>(&m_score), sizeof(float))) {
 			return false;
 		}
 
@@ -427,9 +499,9 @@ public:
 		}
 
 		uint nets;
-		if (!file->read((char *) &nets, sizeof(uint))
-			|| !file->read((char *) &m_sessionsTrained, sizeof(uint))
-			|| !file->read((char *) &m_score, sizeof(float))) {
+		if (!file->read(reinterpret_cast<char*>(&nets), sizeof(uint))
+			|| !file->read(reinterpret_cast<char*>(&m_sessionsTrained), sizeof(uint))
+			|| !file->read(reinterpret_cast<char*>(&m_score), sizeof(float))) {
 			return false;
 		}
 
@@ -565,11 +637,11 @@ public:
 		}
 
 		uint size = m_population.size();
-		if (!file.write((char *) &size, sizeof(uint))
-			|| !file.write((char *) &m_generation, sizeof(uint))
-			|| !file.write((char *) &m_sessionsTrained, sizeof(uint))
-			|| !file.write((char *) &m_minEvolValue, sizeof(T))
-			|| !file.write((char *) &m_maxEvolValue, sizeof(T))) {
+		if (!file.write(reinterpret_cast<const char*>(&size), sizeof(uint))
+			|| !file.write(reinterpret_cast<const char*>(&m_generation), sizeof(uint))
+			|| !file.write(reinterpret_cast<const char*>(&m_sessionsTrained), sizeof(uint))
+			|| !file.write(reinterpret_cast<const char*>(&m_minEvolValue), sizeof(T))
+			|| !file.write(reinterpret_cast<const char*>(&m_maxEvolValue), sizeof(T))) {
 			return false;
 		}
 
@@ -589,11 +661,11 @@ public:
 		}
 
 		uint size = 0;
-		if (!file.read((char *) &size, sizeof(uint))
-			|| !file.read((char *) &m_generation, sizeof(uint))
-			|| !file.read((char *) &m_sessionsTrained, sizeof(uint))
-			|| !file.read((char *) &m_minEvolValue, sizeof(T))
-			|| !file.read((char *) &m_maxEvolValue, sizeof(T))) {
+		if (!file.read(reinterpret_cast<char*>(&size), sizeof(uint))
+			|| !file.read(reinterpret_cast<char*>(&m_generation), sizeof(uint))
+			|| !file.read(reinterpret_cast<char*>(&m_sessionsTrained), sizeof(uint))
+			|| !file.read(reinterpret_cast<char*>(&m_minEvolValue), sizeof(T))
+			|| !file.read(reinterpret_cast<char*>(&m_maxEvolValue), sizeof(T))) {
 			return false;
 		}
 

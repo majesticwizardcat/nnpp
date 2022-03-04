@@ -10,6 +10,7 @@ int main() {
 	std::cout << "NN has data size: " << nn.getDataSize() << '\n';
 	std::cout << "Initiating data to 1.0f" << '\n';
 	nn.initDataVal(1.0f);
+	nn.initBiasesVal(0.0f);
 	
 	std::vector<float> input = { 1.0f, 1.0f };
 	std::cout << "Fedding input... " << '\n';
