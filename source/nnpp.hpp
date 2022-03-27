@@ -584,11 +584,11 @@ public:
 	NNPopulation() = delete;
 	NNPopulation(const NNPopulation& other) = delete;
 
-	NNPopulation(const std::string& name, uint size, const std::vector<std::vector<uint>>& layers,
-		const T& minEvolValue, const T& maxEvolValue) :
+	NNPopulation(const std::string& name, uint size, const std::vector<std::vector<uint>>& layers, const T& minEvolValue, const T& maxEvolValue) :
 		m_name(name),
 		m_generation(0),
 		m_sessionsTrained(0),
+		m_sessionsTrainedThisGen(0),
 		m_minEvolValue(minEvolValue),
 		m_maxEvolValue(maxEvolValue) {
 		for (uint i = 0; i < size; ++i) {
@@ -596,8 +596,8 @@ public:
 		}
 	}
 
-	NNPopulation(const std::string& name) :
-		m_name(name) {
+	NNPopulation(const std::string& name)
+		: m_name(name) {
 		loadFromDisk(name + '.' + FILE_EXT);
 	}
 
@@ -640,6 +640,7 @@ public:
 		if (!file.write(reinterpret_cast<const char*>(&size), sizeof(uint))
 			|| !file.write(reinterpret_cast<const char*>(&m_generation), sizeof(uint))
 			|| !file.write(reinterpret_cast<const char*>(&m_sessionsTrained), sizeof(uint))
+			|| !file.write(reinterpret_cast<const char*>(&m_sessionsTrainedThisGen), sizeof(uint))
 			|| !file.write(reinterpret_cast<const char*>(&m_minEvolValue), sizeof(T))
 			|| !file.write(reinterpret_cast<const char*>(&m_maxEvolValue), sizeof(T))) {
 			return false;
@@ -664,6 +665,7 @@ public:
 		if (!file.read(reinterpret_cast<char*>(&size), sizeof(uint))
 			|| !file.read(reinterpret_cast<char*>(&m_generation), sizeof(uint))
 			|| !file.read(reinterpret_cast<char*>(&m_sessionsTrained), sizeof(uint))
+			|| !file.read(reinterpret_cast<char*>(&m_sessionsTrainedThisGen), sizeof(uint))
 			|| !file.read(reinterpret_cast<char*>(&m_minEvolValue), sizeof(T))
 			|| !file.read(reinterpret_cast<char*>(&m_maxEvolValue), sizeof(T))) {
 			return false;
@@ -691,11 +693,12 @@ public:
 
 	inline void evolutionCompleted() {
 		m_generation++;
-		m_sessionsTrained = 0;
+		m_sessionsTrainedThisGen = 0;
 	}
 
 	inline void trainSessionCompleted() {
 		m_sessionsTrained++;
+		m_sessionsTrainedThisGen++;
 	}
 
 	inline uint getGenerartion() const {
@@ -704,6 +707,10 @@ public:
 	
 	inline uint getSessionsTrained() const {
 		return m_sessionsTrained;
+	}
+
+	inline uint getSessionsTrainedThisGen() const {
+		return m_sessionsTrainedThisGen;
 	}
 
 	inline uint getPopulationSize() const {
@@ -737,16 +744,27 @@ public:
 		std::cout << "Name: " << m_name
 			<< ", Population size: " << m_population.size()
 			<< ", Generation: " << m_generation
-			<< ", Trained sessions: " << m_sessionsTrained << '\n';
+			<< ", Trained sessions: " << m_sessionsTrained
+			<< ", Trained sessions this gen: " << m_sessionsTrainedThisGen << '\n';
 	}
 
 private:
 	std::vector<NNAi<T>> m_population;
 	uint m_generation;
 	uint m_sessionsTrained;
+	uint m_sessionsTrainedThisGen;
 	std::string m_name;
 	T m_minEvolValue;
 	T m_maxEvolValue;
+};
+
+template <typename T> struct NNPPTrainingUpdate {
+	NNAi<T>* const nnai;
+	float updateValue;
+
+	NNPPTrainingUpdate<T>() = delete;
+	NNPPTrainingUpdate<T>(NNAi<T>* const nnai, float updateValue)
+		: nnai(nnai), updateValue(updateValue) { }
 };
 
 template <typename T> class NNPPTrainer {
@@ -755,35 +773,40 @@ public:
 	NNPPTrainer(uint sessions, uint threads, NNPopulation<T>* const population) :
 		m_sessions(sessions),
 		m_threads(threads),
-		m_completed(0),
 		m_trainee(population) { }
 
 	virtual ~NNPPTrainer() { }
 
 	void run() {
+		uint sessionsCompleted = 0;
 		std::vector<std::thread> workers;
-		auto workFunc = [&]() {
-			if (++m_completed > m_sessions) {
-				return;
+		std::atomic<uint> sessionsCounter = 0;
+		auto workFunc = [&](uint sessionsToRun) {
+			while (sessionsCounter++ < sessionsToRun) {
+				onSessionComplete(runSession());
 			}
-			updateScores(runSession());
 		};
 
-		while (m_completed < m_sessions) {
-			uint sessionsToEvolve = sessionsTillEvolution();
-			uint threadsToUse = std::min(m_threads, sessionsToEvolve);
+		while (sessionsCompleted < m_sessions) {
+			uint sessionsToRun = std::min(m_sessions - sessionsCompleted, sessionsTillEvolution());
+			uint threadsToUse = std::min(m_threads, sessionsToRun);
+			sessionsCounter = 0;
+
 			for (uint i = 0; i < threadsToUse; ++i) {
-				workers.emplace_back(workFunc);
+				workers.emplace_back(workFunc, sessionsToRun);
 			}
+
 			while (!workers.empty()) {
 				workers.back().join();
 				workers.pop_back();
 			}
-			m_trainee->trainSessionCompleted();
+
 			if (shouldEvolve()) {
 				evolve();
 				save();
 			}
+
+			sessionsCompleted += sessionsToRun;
 		}
 		save();
 	}
@@ -800,15 +823,21 @@ public:
 		assert(min <= max);
 		std::vector<uint> replaced;
 		for (uint i = 0; i < m_trainee->getPopulationSize(); ++i) {
-			float normalizedScore = normalize(m_trainee->getNNAiPtrAt(i)->getScore(), min, max);
+			float normalizedScore = 0.0f;
+			if (max > min) {
+				normalizedScore = normalize(m_trainee->getNNAiPtrAt(i)->getScore(), min, max);
+			}
+			else {
+				normalizedScore = 1.0f / static_cast<float>(m_trainee->getPopulationSize());
+			}
 			assert(normalizedScore >= 0.0f);
 			assert(normalizedScore <= 1.0f);
 			if (normalizedScore < dist(dev)) {
 				replaced.push_back(i);
 			}
 		}
-		assert(replaced.size() > 0);
-		assert(replaced.size() != m_trainee->getPopulationSize());
+		assert(min == max || replaced.size() > 0);
+		assert(min == max || replaced.size() != m_trainee->getPopulationSize());
 		std::uniform_int_distribution<uint> intDist(0, m_trainee->getPopulationSize() - 1);
 		for (uint r : replaced) {
 			m_trainee->replace(r, createEvolvedNNAi(r, &intDist, &dev, min, max, dist(dev)));
@@ -819,15 +848,14 @@ public:
 protected:
 	NNPopulation<T>* m_trainee;
 
-	virtual std::vector<std::pair<NNAi<T>* const, float>> runSession() = 0;
+	virtual std::vector<NNPPTrainingUpdate<T>> runSession() = 0;
 	virtual uint sessionsTillEvolution() const = 0;
 	virtual bool shouldEvolve() const = 0;
 
 private:
 	uint m_sessions;
 	uint m_threads;
-	std::atomic<uint> m_completed;
-	std::mutex m_scoreUpdatesMutex;
+	std::mutex m_onSessionCompleteMutex;
 
 	NNAi<T> createEvolvedNNAi(uint index, std::uniform_int_distribution<uint>* const dist,
 		std::random_device* const dev, float minScore, float maxScore, float targetScore) const {
@@ -858,8 +886,13 @@ private:
 			MUTATION_CHANCE, minEvolValue, maxEvolValue);
 	}
 
-	void updateScores(const std::vector<std::pair<NNAi<T>* const, float>>& scoreUpdates) {
-		std::lock_guard<std::mutex> lock(m_scoreUpdatesMutex);
+	inline void onSessionComplete(const std::vector<NNPPTrainingUpdate<T>>& scoreUpdates) {
+		std::lock_guard<std::mutex> lock(m_onSessionCompleteMutex);
+		updateScores(scoreUpdates);
+		m_trainee->trainSessionCompleted();
+	}
+
+	inline void updateScores(const std::vector<NNPPTrainingUpdate<T>>& scoreUpdates) {
 		for (const auto& [nnai, deltaScore] : scoreUpdates) {
 			assert(nnai);
 			nnai->updateScore(deltaScore);
@@ -889,8 +922,8 @@ public:
 		m_tests(tests) { }
 
 protected:
-	std::vector<std::pair<NNAi<T>* const, float>> runSession() {
-		std::vector<std::pair<NNAi<T>* const, float>> updates;
+	std::vector<NNPPTrainingUpdate<T>> runSession() {
+		std::vector<NNPPTrainingUpdate<T>> updates;
 		for (uint i = 0; i < NNPPTrainer<T>::m_trainee->getPopulationSize(); ++i) {
 			NNAi<T>* nnai = NNPPTrainer<T>::m_trainee->getNNAiPtrAt(i);
 			assert(nnai);
