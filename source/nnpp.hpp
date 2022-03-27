@@ -850,7 +850,6 @@ protected:
 
 	virtual std::vector<NNPPTrainingUpdate<T>> runSession() = 0;
 	virtual uint sessionsTillEvolution() const = 0;
-	virtual bool shouldEvolve() const = 0;
 
 private:
 	uint m_sessions;
@@ -898,6 +897,11 @@ private:
 			nnai->updateScore(deltaScore);
 		}
 	}
+
+	inline bool shouldEvolve() const {
+		return sessionsTillEvolution() == 0;
+	}
+
 };
 
 template <typename T> class TrainerDataSet {
@@ -945,11 +949,8 @@ protected:
 	}
 
 	uint sessionsTillEvolution() const {
-		return 1;
-	}
-
-	bool shouldEvolve() const {
-		return true;
+		assert(NNPPTrainer<T>::m_trainee->getSessionsTrainedThisGen() <= 1);
+		return NNPPTrainer<T>::m_trainee->getSessionsTrainedThisGen() - 1;
 	}
 
 private:

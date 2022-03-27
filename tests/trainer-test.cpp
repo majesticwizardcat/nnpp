@@ -28,11 +28,6 @@ protected:
 		return tillNextGen() - m_trainee->getSessionsTrainedThisGen();
 	}
 
-	bool shouldEvolve() const {
-		assert(tillNextGen() >= m_trainee->getSessionsTrainedThisGen());
-		return tillNextGen() == m_trainee->getSessionsTrainedThisGen();
-	}
-
 private:
 	std::atomic<uint> m_sessionsFinished;
 
