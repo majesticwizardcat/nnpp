@@ -748,6 +748,10 @@ public:
 			<< ", Trained sessions this gen: " << m_sessionsTrainedThisGen << '\n';
 	}
 
+	inline const NNAi<T>& getBestNNAiConstRef() const {
+		return *std::max_element(m_population.begin(), m_population.end());
+	}
+
 private:
 	std::vector<NNAi<T>> m_population;
 	uint m_generation;

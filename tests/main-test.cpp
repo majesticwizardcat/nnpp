@@ -44,7 +44,7 @@ int main() {
 
 	nnp.printInfo();
 
-	NNAi<float>& best = nnp.getMaxScoreNNAi();
+	const NNAi<float>& best = nnp.getBestNNAiConstRef();
 	std::cout << "Best score: " << best.getScore() << '\n';
 	std::cout << "Best score layers: " << '\n';
 	best.printLayerSizes();
