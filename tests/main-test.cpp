@@ -11,15 +11,16 @@ int main() {
 	std::vector<std::vector<uint>> layers = { { 4, 30, 20, 35, 50, 30, 10, 1 } };
 	NNPopulation<float> nnp("test", 300, layers, minValue, maxValue);
 	nnp.createRandom(minValue, maxValue);
-	std::vector<float> input0 = { 0.0f, 0.0f, 0.0f, 0.0f };
-	std::vector<float> input1 = { 1.0f, 0.0f, 1.0f, 1.0f };
-	std::vector<float> input2 = { 0.0f, 1.0f, 1.0f, 0.0f };
-	std::vector<float> input3 = { 1.0f, 1.0f, 1.0f, 1.0f };
-	std::vector<float> exp0 = { -10.5f };
-	std::vector<float> exp1 = { 2.6f };
-	std::vector<float> exp2 = { 3.7f };
-	std::vector<float> exp3 = { 4.8f };
+	NNPPStackVector<float> input0 = { 0.0f, 0.0f, 0.0f, 0.0f };
+	NNPPStackVector<float> input1 = { 1.0f, 0.0f, 1.0f, 1.0f };
+	NNPPStackVector<float> input2 = { 0.0f, 1.0f, 1.0f, 0.0f };
+	NNPPStackVector<float> input3 = { 1.0f, 1.0f, 1.0f, 1.0f };
+	NNPPStackVector<float> exp0 = { -10.5f };
+	NNPPStackVector<float> exp1 = { 2.6f };
+	NNPPStackVector<float> exp2 = { 3.7f };
+	NNPPStackVector<float> exp3 = { 4.8f };
 	std::vector<TrainerDataSet<float>> tests;
+
 	tests.emplace_back(input0, exp0, 0);
 	tests.emplace_back(input1, exp1, 0);
 	tests.emplace_back(input2, exp2, 0);
@@ -50,7 +51,7 @@ int main() {
 	best.printLayerSizes();
 	std::cout << "Outputs after training: " << '\n';
 	for (const auto& t : tests) {
-		std::vector<float> out = best.feedAt(t.aiIndex, t.input);
+		NNPPStackVector<float> out = best.feedAt(t.aiIndex, t.input);
 		std::cout << "Input: ";
 		for (float i : t.input) {
 			std::cout << i << ' ';

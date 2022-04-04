@@ -9,10 +9,10 @@ int main() {
 	nnai.initVal(1.0f);
 	nnai.initBiasesVal(0.0f);
 
-	std::vector<float> out;
-	std::vector<float> input0 = { 1.0f };
-	std::vector<float> input1 = { 1.0f, 1.0f };
-	std::vector<float> input2 = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+	NNPPStackVector<float> out;
+	NNPPStackVector<float> input0 = { 1.0f };
+	NNPPStackVector<float> input1 = { 1.0f, 1.0f };
+	NNPPStackVector<float> input2 = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 	
 	std::cout << "Testing feeding..." << '\n';
 	out = nnai.feedAt(0, input0);

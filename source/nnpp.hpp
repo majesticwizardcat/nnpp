@@ -25,11 +25,35 @@ inline float normalize(float value, float min, float max) {
 	return (value - min) / (max - min);
 }
 
+template <typename T, uint N> class StackVector {
+public:
+	StackVector()
+		: m_size(0) { }
+
+	StackVector(const StackVector& other)
+		: m_size(other.m_size)
+		, m_array(other.m_array) { }
+	
+	StackVector(std::initializer_list<T> initValues)
+		: m_size(initValues.size()) {
+		std::copy(initValues.begin(), initValues.end(), m_array.begin());
+	}
+
+	inline void push(const T& val) { m_array[m_size++] = val; }
+	inline uint size() const { return m_size; }
+	inline auto begin() const { return m_array.begin(); }
+	inline auto end() const { return m_array.begin() + m_size; }
+	inline T& operator[](uint pos) { m_size = std::max(m_size, pos + 1); return m_array[pos]; }
+	inline const T& operator[](uint pos) const { return m_array[pos]; }
+private:
+	uint m_size;
+	std::array<T, N> m_array;
+};
+
+template <typename T> using NNPPStackVector = StackVector<T, MAX_NEURONS_PER_LAYER>;
+
 template <typename T> class NeuralNetwork {
 public:
-// First half of the array is for inputs for the next layer and the other half is for the outputs
-	typedef std::array<T, 2 * MAX_NEURONS_PER_LAYER> NeuronsArray;
-
 	NeuralNetwork() = delete;
 
 	NeuralNetwork(const NeuralNetwork& other) = delete;
@@ -266,7 +290,7 @@ public:
 		m_neuronBiases.release();
 	}
 
-	std::vector<T> feed(const std::vector<T>& input) const {
+	NNPPStackVector<T> feed(const NNPPStackVector<T>& input) const {
 		NeuronsArray neurons;
 		latchInputs(input, &neurons);
 		propagate(&neurons);
@@ -304,6 +328,9 @@ public:
 	}
 
 private:
+// First half of the array is for inputs for the next layer and the other half is for the outputs
+	typedef std::array<T, 2 * MAX_NEURONS_PER_LAYER> NeuronsArray;
+
 	ulong m_dataSize;
 	std::vector<uint> m_layerSizes;
 	std::unique_ptr<T[]> m_data;
@@ -343,7 +370,7 @@ private:
 		return m_neuronBiases.get() + neuronBiasIndex(neuron, layer);
 	}
 
-	inline void latchInputs(const std::vector<T>& inputs, NeuronsArray* const neurons) const {
+	inline void latchInputs(const NNPPStackVector<T>& inputs, NeuronsArray* const neurons) const {
 		assert(m_layerSizes.size() >= 3);
 		assert(inputs.size() == *m_layerSizes.begin());
 		for (uint i = 0; i < inputs.size(); ++i) {
@@ -380,9 +407,9 @@ private:
 		std::cout << '\n';
 	}
 
-	inline std::vector<T> getOutputs(const NeuronsArray& neurons) const {
-		std::vector<T> out(m_layerSizes.back());
-		for (uint i = 0; i < out.size(); ++i) {
+	inline NNPPStackVector<T> getOutputs(const NeuronsArray& neurons) const {
+		NNPPStackVector<T> out;
+		for (uint i = 0; i < m_layerSizes.back(); ++i) {
 			out[i] = neurons[i];
 		}
 		return out;
@@ -525,7 +552,7 @@ public:
 		return *this;
 	}
 
-	inline std::vector<T> feedAt(uint index, const std::vector<T>& input) const {
+	inline NNPPStackVector<T> feedAt(uint index, const NNPPStackVector<T>& input) const {
 		assert(index < m_networks.size());
 		return m_networks[index].feed(input);
 	}
@@ -910,12 +937,12 @@ private:
 
 template <typename T> class TrainerDataSet {
 public:
-	std::vector<T> input;
-	std::vector<T> expected;
+	NNPPStackVector<T> input;
+	NNPPStackVector<T> expected;
 	uint aiIndex;
 
 	TrainerDataSet() : aiIndex(0) { }
-	TrainerDataSet(const std::vector<T>& input, const std::vector<T>& expected, uint aiIndex) :
+	TrainerDataSet(const NNPPStackVector<T>& input, const NNPPStackVector<T>& expected, uint aiIndex) :
 		input(input),
 		expected(expected),
 		aiIndex(aiIndex) { }
@@ -940,7 +967,7 @@ protected:
 			}
 			float deltaScore = 0.0f;
 			for (const auto& [input, exp, indx] : m_tests) {
-				std::vector<T> out = nnai->feedAt(indx, input);
+				NNPPStackVector<T> out = nnai->feedAt(indx, input);
 				assert(out.size() == exp.size());
 				for (uint o = 0; o < exp.size(); ++o) {
 					deltaScore += -std::abs(exp[o] - out[o]);

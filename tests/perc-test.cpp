@@ -13,10 +13,10 @@ int main() {
 	nn.printData();
 	std::cout << "---------" << '\n';
 
-	std::vector<float> in0 = { 0.0f, 0.0f };
-	std::vector<float> in1 = { 1.0f, 0.0f };
-	std::vector<float> in2 = { 0.0f, 1.0f };
-	std::vector<float> in3 = { 1.0f, 1.0f };
+	NNPPStackVector<float> in0 = { 0.0f, 0.0f };
+	NNPPStackVector<float> in1 = { 1.0f, 0.0f };
+	NNPPStackVector<float> in2 = { 0.0f, 1.0f };
+	NNPPStackVector<float> in3 = { 1.0f, 1.0f };
 	auto out = nn.feed(in0);
 	std::cout << "Out for: " << in0[0] << ", " << in0[1] << " -> " << out[0] << '\n';
 	assert(out[0] == 0.0f);

@@ -12,7 +12,7 @@ int main() {
 	nn.initDataVal(1.0f);
 	nn.initBiasesVal(0.0f);
 	
-	std::vector<float> input = { 1.0f, 1.0f };
+	NNPPStackVector<float> input = { 1.0f, 1.0f };
 	std::cout << "Fedding input... " << '\n';
 	auto out = nn.feed(input);
 	for (float o : out) {
