@@ -33,6 +33,10 @@ public:
 	StackVector(const StackVector& other)
 		: m_size(other.m_size)
 		, m_array(other.m_array) { }
+
+	StackVector(StackVector&& other)
+		: m_size(std::move(other.m_size))
+		, m_array(std::move(other.m_array)) { }
 	
 	StackVector(std::initializer_list<T> initValues)
 		: m_size(initValues.size()) {
@@ -45,6 +49,12 @@ public:
 	inline auto end() const { return m_array.begin() + m_size; }
 	inline T& operator[](uint pos) { m_size = std::max(m_size, pos + 1); return m_array[pos]; }
 	inline const T& operator[](uint pos) const { return m_array[pos]; }
+	inline StackVector& operator=(StackVector&& other) {
+		m_array = std::move(other.m_array);
+		m_size = std::move(other.m_size);
+		return *this;
+	}
+
 private:
 	uint m_size;
 	std::array<T, N> m_array;
