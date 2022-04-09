@@ -49,6 +49,7 @@ public:
 	inline auto end() const { return m_array.begin() + m_size; }
 	inline bool empty() const { return m_size == 0; }
 	inline void erase(uint index) { std::swap(m_array[index], m_array[--m_size]); }
+	inline void clear() { m_size = 0; }
 	inline T& operator[](uint pos) { m_size = std::max(m_size, pos + 1); return m_array[pos]; }
 	inline const T& operator[](uint pos) const { return m_array[pos]; }
 
