@@ -15,11 +15,17 @@
 typedef unsigned int uint;
 typedef unsigned long long ulong;
 
-static const char* FILE_EXT = "nnpp";
-static const float MUTATION_CHANCE = 0.05f;
+static const uint VERSION_NN = 1;
+static const std::string HEADER_STR_NN = "NNPPNN";
+static const uint VERSION_NNAI = 1;
+static const std::string HEADER_STR_NNAI = "NNPPNNAI";
+static const uint VERSION_NNPP = 1;
+static const std::string HEADER_STR_NNPP = "NNPP";
+
 static const uint MAX_NEURONS_PER_LAYER = 512;
 static const uint LAYER_EXTRAS = 5;
 static const float EXTRAS_PROB = 0.3f;
+static const float MUTATION_CHANCE = 0.05f;
 
 inline float normalize(float value, float min, float max) {
 	return (value - min) / (max - min);
@@ -240,6 +246,10 @@ public:
 			return false;
 		}
 
+		if (!saveHeader(saveFile)) {
+			return false;
+		}
+
 		uint size = m_layerSizes.size();
 		if (!saveFile->write(reinterpret_cast<const char*>(&size), sizeof(uint))) {
 			return false;
@@ -270,27 +280,20 @@ public:
 			return false;
 		}
 
-		uint layers;
-		if (!file->read(reinterpret_cast<char*>(&layers), sizeof(uint))) {
+		uint headerVersion = 0;
+		if (!readHeader(file, &headerVersion)
+			|| headerVersion > VERSION_NN) {
+			std::cout << "Header version: " << headerVersion << '\n';
 			return false;
-		}
-		for (uint l = 0; l < layers; ++l) {
-			uint cur = 0;
-			if (!file->read(reinterpret_cast<char*>(&cur), sizeof(uint))) {
-				return false;
-			}
-			m_layerSizes.push_back(cur);
 		}
 
-		uint biases = getNeuronsNum();
-		m_dataSize = calculateDataSize();
-		m_data = std::make_unique<T[]>(m_dataSize);
-		m_neuronBiases = std::make_unique<T[]>(biases);
-		if (!file->read(reinterpret_cast<char*>(m_data.get()), sizeof(T) * m_dataSize)
-			|| !file->read(reinterpret_cast<char*>(m_neuronBiases.get()), sizeof(T) * biases)) {
-			return false;
+		switch(headerVersion) {
+		case 1:
+			return loadVersion1(file);
+		default:
+			break;
 		}
-		return true;
+		return false;
 	}
 
 	bool loadFromFile(const std::string& location) {
@@ -350,6 +353,46 @@ private:
 	std::vector<uint> m_layerSizes;
 	std::unique_ptr<T[]> m_data;
 	std::unique_ptr<T[]> m_neuronBiases;
+
+	bool saveHeader(std::ofstream* saveFile) const {
+		return saveFile->write(reinterpret_cast<const char*>(HEADER_STR_NN.data()), sizeof(HEADER_STR_NN.size()))
+			&& saveFile->write(reinterpret_cast<const char*>(&VERSION_NN), sizeof(uint));
+	}
+
+	bool readHeader(std::ifstream* file, uint* headerVersion) const {
+		std::string headerStr;
+		headerStr.resize(HEADER_STR_NN.size());
+		if (!file->read(reinterpret_cast<char*>(headerStr.data()), sizeof(HEADER_STR_NN.size()))) {
+			return false;
+		}
+		return headerStr == HEADER_STR_NN
+			&& file->read(reinterpret_cast<char*>(headerVersion), sizeof(uint));
+	}
+
+	bool loadVersion1(std::ifstream* file) {
+		uint layers;
+		if (!file->read(reinterpret_cast<char*>(&layers), sizeof(uint))) {
+			return false;
+		}
+		for (uint l = 0; l < layers; ++l) {
+			uint cur = 0;
+			if (!file->read(reinterpret_cast<char*>(&cur), sizeof(uint))) {
+				return false;
+			}
+			m_layerSizes.push_back(cur);
+		}
+
+		uint biases = getNeuronsNum();
+		m_dataSize = calculateDataSize();
+		m_data = std::make_unique<T[]>(m_dataSize);
+		m_neuronBiases = std::make_unique<T[]>(biases);
+		if (!file->read(reinterpret_cast<char*>(m_data.get()), sizeof(T) * m_dataSize)
+			|| !file->read(reinterpret_cast<char*>(m_neuronBiases.get()), sizeof(T) * biases)) {
+			return false;
+		}
+		return true;
+	}
+
 
 	inline uint weightIndex(uint fromNeuron, uint toNeuron, uint toLayer) const {
 		assert(toLayer > 0);
@@ -513,6 +556,10 @@ public:
 			return false;
 		}
 
+		if (!saveHeader(file)) {
+			return false;
+		}
+
 		uint nets = m_networks.size();
 		if (!file->write(reinterpret_cast<const char*>(&nets), sizeof(uint))
 			|| !file->write(reinterpret_cast<const char*>(&m_sessionsTrained), sizeof(uint))
@@ -540,18 +587,18 @@ public:
 			return false;
 		}
 
-		uint nets;
-		if (!file->read(reinterpret_cast<char*>(&nets), sizeof(uint))
-			|| !file->read(reinterpret_cast<char*>(&m_sessionsTrained), sizeof(uint))
-			|| !file->read(reinterpret_cast<char*>(&m_score), sizeof(float))) {
+		uint headerVersion = 0;
+		if (!readHeader(file, &headerVersion)) {
 			return false;
 		}
 
-		for (uint i = 0; i < nets; ++i) {
-			m_networks.emplace_back(file);
+		switch (headerVersion) {
+		case 1:
+			return loadVersion1(file);
+		default:
+			break;
 		}
-
-		return true;
+		return false;
 	}
 
 	void clearAll() {
@@ -619,6 +666,36 @@ private:
 	std::vector<NeuralNetwork<T>> m_networks;
 	float m_score;
 	uint m_sessionsTrained;
+
+	bool saveHeader(std::ofstream* saveFile) const {
+		return saveFile->write(reinterpret_cast<const char*>(HEADER_STR_NNAI.data()), sizeof(HEADER_STR_NNAI.size()))
+			&& saveFile->write(reinterpret_cast<const char*>(&VERSION_NNAI), sizeof(uint));
+	}
+
+	bool readHeader(std::ifstream* file, uint* headerVersion) const {
+		std::string headerStr;
+		headerStr.resize(HEADER_STR_NNAI.size());
+		if (!file->read(reinterpret_cast<char*>(headerStr.data()), sizeof(HEADER_STR_NNAI.size()))) {
+			return false;
+		}
+		return headerStr == HEADER_STR_NNAI
+			&& file->read(reinterpret_cast<char*>(headerVersion), sizeof(uint));
+	}
+
+	bool loadVersion1(std::ifstream* file) {
+		uint nets;
+		if (!file->read(reinterpret_cast<char*>(&nets), sizeof(uint))
+			|| !file->read(reinterpret_cast<char*>(&m_sessionsTrained), sizeof(uint))
+			|| !file->read(reinterpret_cast<char*>(&m_score), sizeof(float))) {
+			return false;
+		}
+
+		for (uint i = 0; i < nets; ++i) {
+			m_networks.emplace_back(file);
+		}
+
+		return true;
+	}
 };
 
 template <typename T> class NNPopulation {
@@ -640,7 +717,7 @@ public:
 
 	NNPopulation(const std::string& name)
 		: m_name(name) {
-		loadFromDisk(name + '.' + FILE_EXT);
+		loadFromDisk(name);
 	}
 
 	NNPopulation(NNPopulation&& other) :
@@ -669,12 +746,16 @@ public:
 	}
 
 	inline bool saveToDisk() const {
-		return saveToDisk(m_name + '.' + FILE_EXT);
+		return saveToDisk(m_name);
 	}
 
 	bool saveToDisk(const std::string& location) const {
 		std::ofstream file(location, std::ios::out | std::ios::binary);
 		if (!file) {
+			return false;
+		}
+
+		if (!saveHeader(&file)) {
 			return false;
 		}
 
@@ -703,20 +784,18 @@ public:
 			return false;
 		}
 
-		uint size = 0;
-		if (!file.read(reinterpret_cast<char*>(&size), sizeof(uint))
-			|| !file.read(reinterpret_cast<char*>(&m_generation), sizeof(uint))
-			|| !file.read(reinterpret_cast<char*>(&m_sessionsTrained), sizeof(uint))
-			|| !file.read(reinterpret_cast<char*>(&m_sessionsTrainedThisGen), sizeof(uint))
-			|| !file.read(reinterpret_cast<char*>(&m_minEvolValue), sizeof(T))
-			|| !file.read(reinterpret_cast<char*>(&m_maxEvolValue), sizeof(T))) {
+		uint headerVersion = 0;
+		if (!readHeader(&file, &headerVersion)) {
 			return false;
 		}
 
-		for (uint i = 0; i < size; ++i) {
-			m_population.emplace_back(&file);
+		switch (headerVersion) {
+		case 1:
+			return loadVersion1(&file);
+		default:
+			break;
 		}
-		return true;
+		return false;
 	}
 
 	void clearAll() {
@@ -802,6 +881,38 @@ private:
 	std::string m_name;
 	T m_minEvolValue;
 	T m_maxEvolValue;
+
+	bool saveHeader(std::ofstream* saveFile) const {
+		return saveFile->write(reinterpret_cast<const char*>(HEADER_STR_NNPP.data()), sizeof(HEADER_STR_NNPP.size()))
+			&& saveFile->write(reinterpret_cast<const char*>(&VERSION_NNPP), sizeof(uint));
+	}
+
+	bool readHeader(std::ifstream* file, uint* headerVersion) const {
+		std::string headerStr;
+		headerStr.resize(HEADER_STR_NNPP.size());
+		if (!file->read(reinterpret_cast<char*>(headerStr.data()), sizeof(HEADER_STR_NNPP.size()))) {
+			return false;
+		}
+		return headerStr == HEADER_STR_NNPP
+			&& file->read(reinterpret_cast<char*>(headerVersion), sizeof(uint));
+	}
+
+	bool loadVersion1(std::ifstream* file) {
+		uint size = 0;
+		if (!file->read(reinterpret_cast<char*>(&size), sizeof(uint))
+			|| !file->read(reinterpret_cast<char*>(&m_generation), sizeof(uint))
+			|| !file->read(reinterpret_cast<char*>(&m_sessionsTrained), sizeof(uint))
+			|| !file->read(reinterpret_cast<char*>(&m_sessionsTrainedThisGen), sizeof(uint))
+			|| !file->read(reinterpret_cast<char*>(&m_minEvolValue), sizeof(T))
+			|| !file->read(reinterpret_cast<char*>(&m_maxEvolValue), sizeof(T))) {
+			return false;
+		}
+
+		for (uint i = 0; i < size; ++i) {
+			m_population.emplace_back(file);
+		}
+		return true;
+	}
 };
 
 template <typename T> struct NNPPTrainingUpdate {
