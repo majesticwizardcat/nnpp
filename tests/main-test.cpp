@@ -37,7 +37,7 @@ int main() {
 		if (i % 1000 == 0) {
 			std::cout << "Completed: " << i << " out of: " << SESSIONS << '\n';
 		}
-		trainer.run();
+		trainer.run(false);
 		nnp.saveToDisk();
 		nnp = NNPopulation<float>("test");
 	}

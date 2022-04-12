@@ -43,7 +43,7 @@ int main() {
 	NNPopulation<float> population("trainer-test", 100, layers, 0.0f, 1.0f);
 	population.createRandom(0.0f, 1.0f);
 	TestTrainer trainer(1053, 7, &population);
-	trainer.run();
+	trainer.run(true);
 	assert(population.getGenerartion() == 10);
 	assert(population.getSessionsTrained() == 1053);
 	assert(population.getSessionsTrainedThisGen() == 53);

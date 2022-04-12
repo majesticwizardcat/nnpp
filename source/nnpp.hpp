@@ -934,13 +934,17 @@ public:
 
 	virtual ~NNPPTrainer() { }
 
-	void run() {
+	void run(bool verbose) {
 		uint sessionsCompleted = 0;
 		std::vector<std::thread> workers;
 		std::atomic<uint> sessionsCounter = 0;
 		auto workFunc = [&](uint sessionsToRun) {
 			while (sessionsCounter++ < sessionsToRun) {
 				onSessionComplete(runSession());
+				if (verbose) {
+					std::cout << "\rCompleted: " << sessionsCounter << " out of: " << m_sessions;
+					std::cout.flush();
+				}
 			}
 		};
 
@@ -964,6 +968,9 @@ public:
 			}
 
 			sessionsCompleted += sessionsToRun;
+		}
+		if (verbose) {
+			std::cout << '\n';
 		}
 		save();
 	}
