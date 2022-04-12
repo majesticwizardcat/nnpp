@@ -930,6 +930,7 @@ public:
 	NNPPTrainer(uint sessions, uint threads, NNPopulation<T>* const population) :
 		m_sessions(sessions),
 		m_threads(threads),
+		m_totalSessionsCompleted(0),
 		m_trainee(population) { }
 
 	virtual ~NNPPTrainer() { }
@@ -942,7 +943,7 @@ public:
 			while (sessionsCounter++ < sessionsToRun) {
 				onSessionComplete(runSession());
 				if (verbose) {
-					std::cout << "\rCompleted: " << sessionsCounter << " out of: " << m_sessions;
+					std::cout << "\rCompleted: " << m_totalSessionsCompleted << " out of: " << m_sessions;
 					std::cout.flush();
 				}
 			}
@@ -1018,6 +1019,7 @@ protected:
 private:
 	uint m_sessions;
 	uint m_threads;
+	uint m_totalSessionsCompleted;
 	std::mutex m_onSessionCompleteMutex;
 
 	NNAi<T> createEvolvedNNAi(uint index, std::uniform_int_distribution<uint>* const dist,
@@ -1053,6 +1055,7 @@ private:
 		std::lock_guard<std::mutex> lock(m_onSessionCompleteMutex);
 		updateScores(scoreUpdates);
 		m_trainee->trainSessionCompleted();
+		m_totalSessionsCompleted++;
 	}
 
 	inline void updateScores(const std::vector<NNPPTrainingUpdate<T>>& scoreUpdates) {
