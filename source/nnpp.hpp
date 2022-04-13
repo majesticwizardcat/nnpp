@@ -1071,6 +1071,7 @@ private:
 		for (const auto& [nnai, deltaScore] : scoreUpdates) {
 			assert(nnai);
 			nnai->updateScore(deltaScore);
+			nnai->sessionCompleted();
 		}
 	}
 
