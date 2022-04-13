@@ -636,7 +636,7 @@ public:
 		m_sessionsTrained++;
 	}
 
-	inline void updateScore(float newScore) {
+	inline void updateScoreReplace(float newScore) {
 		m_score = newScore;
 	}
 
@@ -933,10 +933,13 @@ private:
 template <typename T> struct NNPPTrainingUpdate {
 	NNAi<T>* const nnai;
 	float updateValue;
+	bool replaceValue;
 
 	NNPPTrainingUpdate<T>() = delete;
-	NNPPTrainingUpdate<T>(NNAi<T>* const nnai, float updateValue)
-		: nnai(nnai), updateValue(updateValue) { }
+	NNPPTrainingUpdate<T>(NNAi<T>* const nnai, float updateValue, bool replaceValue)
+		: nnai(nnai)
+		, updateValue(updateValue)
+		, replaceValue(replaceValue) { }
 };
 
 template <typename T> class NNPPTrainer {
@@ -1074,10 +1077,15 @@ private:
 	}
 
 	inline void updateScores(const std::vector<NNPPTrainingUpdate<T>>& scoreUpdates) {
-		for (const auto& [nnai, deltaScore] : scoreUpdates) {
+		for (const auto& [nnai, deltaScore, replace] : scoreUpdates) {
 			assert(nnai);
-			nnai->updateScore(deltaScore);
 			nnai->sessionCompleted();
+			if (replace) {
+				nnai->updateScoreReplace(deltaScore);
+			}
+			else {
+				nnai->updateScoreDelta(deltaScore);
+			}
 		}
 	}
 
@@ -1125,7 +1133,7 @@ protected:
 					deltaScore += -std::abs(exp[o] - out[o]);
 				}
 			}
-			updates.emplace_back(nnai, deltaScore);
+			updates.emplace_back(nnai, deltaScore, true);
 			nnai->sessionCompleted();
 		}
 		return updates;
