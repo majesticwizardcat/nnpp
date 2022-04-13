@@ -874,6 +874,8 @@ public:
 			<< ", Generation: " << m_generation
 			<< ", Trained sessions: " << m_sessionsTrained
 			<< ", Trained sessions this gen: " << m_sessionsTrainedThisGen << '\n';
+		const NNAi<T>& best = getBestNNAiConstRef();
+		std::cout << "Best score: " << best.getScore() << ", times trained: " << best.getSessionsTrained() << '\n';
 	}
 
 	inline const NNAi<T>& getBestNNAiConstRef() const {
