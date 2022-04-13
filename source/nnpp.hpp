@@ -779,6 +779,7 @@ public:
 
 	bool loadFromDisk(const std::string& location) {
 		clearAll();
+		m_name = location;
 		std::ifstream file(location, std::ios::binary);
 		if (!file) {
 			return false;
