@@ -876,6 +876,12 @@ public:
 			<< ", Trained sessions this gen: " << m_sessionsTrainedThisGen << '\n';
 		const NNAi<T>& best = getBestNNAiConstRef();
 		std::cout << "Best score: " << best.getScore() << ", times trained: " << best.getSessionsTrained() << '\n';
+		float avg = 0;
+		for (const auto& nnai : m_population) {
+			avg += nnai.getScore();
+		}
+		avg /= m_population.size();
+		std::cout << "Avg score: " << avg << '\n';
 	}
 
 	inline const NNAi<T>& getBestNNAiConstRef() const {
