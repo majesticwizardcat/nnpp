@@ -662,6 +662,12 @@ public:
 		}
 	}
 
+	inline void printData() const {
+		for (const auto& nn: m_networks) {
+			nn.printData();
+		}
+	}
+
 private:
 	std::vector<NeuralNetwork<T>> m_networks;
 	float m_score;
