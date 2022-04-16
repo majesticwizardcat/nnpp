@@ -954,6 +954,7 @@ public:
 	virtual ~NNPPTrainer() { }
 
 	void run(bool verbose) {
+		m_totalSessionsCompleted = 0;
 		uint sessionsCompleted = 0;
 		std::vector<std::thread> workers;
 		std::atomic<uint> sessionsCounter = 0;
