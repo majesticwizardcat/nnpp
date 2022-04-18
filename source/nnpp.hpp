@@ -17,7 +17,7 @@ typedef unsigned long long ulong;
 
 static const uint VERSION_NN = 1;
 static const std::string HEADER_STR_NN = "NNPPNN";
-static const uint VERSION_NNAI = 1;
+static const uint VERSION_NNAI = 2;
 static const std::string HEADER_STR_NNAI = "NNPPNNAI";
 static const uint VERSION_NNPP = 1;
 static const std::string HEADER_STR_NNPP = "NNPP";
@@ -79,11 +79,11 @@ public:
 
 	NeuralNetwork(const NeuralNetwork& other) = delete;
 
-	NeuralNetwork(const std::vector<uint>& layers) :
-		m_layerSizes(layers),
-		m_dataSize(0),
-		m_data(nullptr),
-		m_neuronBiases(nullptr) {
+	NeuralNetwork(const std::vector<uint>& layers)
+		: m_layerSizes(layers)
+		, m_dataSize(0)
+		, m_data(nullptr)
+		, m_neuronBiases(nullptr) {
 		if (layers.size() < 3) {
 			std::cout << "Cannot init nn with less than 3 layers" << '\n';
 			return;
@@ -93,39 +93,37 @@ public:
 		m_neuronBiases = std::make_unique<T[]>(getNeuronsNum());
 	}
 
-	NeuralNetwork(NeuralNetwork&& other) :
-		m_layerSizes(std::move(other.m_layerSizes)),
-		m_dataSize(std::move(other.m_dataSize)),
-		m_data(std::move(other.m_data)),
-		m_neuronBiases(std::move(other.m_neuronBiases)) {
+	NeuralNetwork(NeuralNetwork&& other)
+		: m_layerSizes(std::move(other.m_layerSizes))
+		, m_dataSize(std::move(other.m_dataSize))
+		, m_data(std::move(other.m_data))
+		, m_neuronBiases(std::move(other.m_neuronBiases)) {
 	}
 
-	NeuralNetwork(const std::string& location) :
-		m_dataSize(0),
-		m_data(nullptr),
-		m_neuronBiases(nullptr) {
+	NeuralNetwork(const std::string& location)
+		: m_dataSize(0)
+		, m_data(nullptr)
+		, m_neuronBiases(nullptr) {
 		if (!loadFromFile(location)) {
 			std::cout << "Could not load from file" << '\n';
 			assert(false);
 		}
 	}
 
-	NeuralNetwork(std::ifstream* const stream) :
-		m_dataSize(0),
-		m_data(nullptr),
-		m_neuronBiases(nullptr) {
+	NeuralNetwork(std::ifstream* const stream) 
+		: m_dataSize(0)
+		, m_data(nullptr)
+		, m_neuronBiases(nullptr) {
 		if (!readFromStream(stream)) {
 			std::cout << "Could not read from stream" << '\n';
 		}
 	}
 
-	NeuralNetwork(const NeuralNetwork<T>& n0, const NeuralNetwork<T>& n1, float mutationChance,
-		const T& minValue, const T& maxValue) {
+	NeuralNetwork(const NeuralNetwork<T>& n0, const NeuralNetwork<T>& n1, float mutationChance, const T& minValue, const T& maxValue) {
 		initFromParents(n0, n1, mutationChance, minValue, maxValue);
 	}
 
-	void initFromParents(const NeuralNetwork<T>& n0, const NeuralNetwork<T>& n1, float mutationChance,
-		const T& minValue, const T& maxValue) {
+	void initFromParents(const NeuralNetwork<T>& n0, const NeuralNetwork<T>& n1, float mutationChance, const T& minValue, const T& maxValue) {
 		assert(n0.m_layerSizes.size() == n1.m_layerSizes.size());
 
 		std::uniform_real_distribution<float> realDist(0.0f, 1.0f);
@@ -491,9 +489,10 @@ template <typename T> class NNAi {
 public:
 	NNAi() = delete;
 	NNAi(const NNAi& other) = delete;
-	NNAi(const std::vector<std::vector<uint>>& layers) :
-		m_sessionsTrained(0),
-		m_score(0.0f) {
+	NNAi(ulong id, const std::vector<std::vector<uint>>& layers)
+		: m_id(id)
+		, m_sessionsTrained(0)
+		, m_score(0.0f) {
 		for (const auto& ls : layers) {
 			m_networks.emplace_back(ls);
 		}
@@ -506,15 +505,15 @@ public:
 		}
 	}
 
-	NNAi(const NNAi& nnai0, const NNAi& nnai1, float mutationChance,
-		const T& minValue, const T& maxValue) {
-		initFromParents(nnai0, nnai1, mutationChance, minValue, maxValue);
+	NNAi(ulong id, const NNAi& nnai0, const NNAi& nnai1, float mutationChance, const T& minValue, const T& maxValue) {
+		initFromParents(id, nnai0, nnai1, mutationChance, minValue, maxValue);
 	}
 
-	NNAi(NNAi&& other) :
-		m_score(std::move(other.m_score)),
-		m_sessionsTrained(std::move(other.m_sessionsTrained)),
-		m_networks(std::move(other.m_networks)) {
+	NNAi(NNAi&& other)
+		: m_id(std::move(other.m_id))
+		, m_score(std::move(other.m_score))
+		, m_sessionsTrained(std::move(other.m_sessionsTrained))
+		, m_networks(std::move(other.m_networks)) {
 	}
 
 	void initRandomUniform(const T& min, const T& max) {
@@ -535,10 +534,10 @@ public:
 		}
 	}
 
-	void initFromParents(const NNAi& nnai0, const NNAi& nnai1, float mutationChance,
-		const T& minValue, const T& maxValue) {
+	void initFromParents(ulong id, const NNAi& nnai0, const NNAi& nnai1, float mutationChance, const T& minValue, const T& maxValue) {
 		assert(nnai0.getNetworksNumber() == nnai1.getNetworksNumber());
 		clearAll();
+		m_id = id;
 		m_score = (nnai0.getScore() + nnai1.getScore()) * 0.5f;
 		for (uint i = 0; i < nnai0.getNetworksNumber(); ++i) {
 			m_networks.emplace_back(nnai0.getConstRefAt(i), nnai1.getConstRefAt(i),
@@ -561,7 +560,8 @@ public:
 		}
 
 		uint nets = m_networks.size();
-		if (!file->write(reinterpret_cast<const char*>(&nets), sizeof(uint))
+		if (!file->write(reinterpret_cast<const char*>(&m_id), sizeof(ulong))
+			|| !file->write(reinterpret_cast<const char*>(&nets), sizeof(uint))
 			|| !file->write(reinterpret_cast<const char*>(&m_sessionsTrained), sizeof(uint))
 			|| !file->write(reinterpret_cast<const char*>(&m_score), sizeof(float))) {
 			return false;
@@ -595,6 +595,8 @@ public:
 		switch (headerVersion) {
 		case 1:
 			return loadVersion1(file);
+		case 2:
+			return loadVersion2(file);
 		default:
 			break;
 		}
@@ -602,12 +604,14 @@ public:
 	}
 
 	void clearAll() {
+		m_id = 0;
 		m_score = 0.0f;
 		m_sessionsTrained = 0;
 		m_networks.clear();
 	}
 
 	inline NNAi& operator=(NNAi&& other) {
+		m_id = std::move(other.m_id);
 		m_score = std::move(other.m_score);
 		m_sessionsTrained = std::move(other.m_sessionsTrained);
 		m_networks = std::move(other.m_networks);
@@ -622,6 +626,14 @@ public:
 	inline const NeuralNetwork<T>& getConstRefAt(uint index) const {
 		assert(index < m_networks.size());
 		return m_networks[index];
+	}
+
+	inline ulong getID() const {
+		return m_id;
+	}
+
+	inline void setID(ulong newID) {
+		m_id = newID;
 	}
 
 	inline uint getNetworksNumber() const {
@@ -669,6 +681,7 @@ public:
 	}
 
 private:
+	ulong m_id;
 	std::vector<NeuralNetwork<T>> m_networks;
 	float m_score;
 	uint m_sessionsTrained;
@@ -702,6 +715,10 @@ private:
 
 		return true;
 	}
+
+	bool loadVersion2(std::ifstream* file) {
+		return file->read(reinterpret_cast<char*>(&m_id), sizeof(ulong)) && loadVersion1(file);
+	}
 };
 
 template <typename T> class NNPopulation {
@@ -709,30 +726,31 @@ public:
 	NNPopulation() = delete;
 	NNPopulation(const NNPopulation& other) = delete;
 
-	NNPopulation(const std::string& name, uint size, const std::vector<std::vector<uint>>& layers, const T& minEvolValue, const T& maxEvolValue) :
-		m_name(name),
-		m_generation(0),
-		m_sessionsTrained(0),
-		m_sessionsTrainedThisGen(0),
-		m_minEvolValue(minEvolValue),
-		m_maxEvolValue(maxEvolValue) {
-		for (uint i = 0; i < size; ++i) {
-			m_population.emplace_back(layers);
-		}
+	NNPopulation(const std::string& name, uint size, const std::vector<std::vector<uint>>& layers, const T& minEvolValue, const T& maxEvolValue)
+		: m_name(name)
+		, m_generation(0)
+		, m_sessionsTrained(0)
+		, m_sessionsTrainedThisGen(0)
+		, m_minEvolValue(minEvolValue)
+		, m_maxEvolValue(maxEvolValue)
+		, m_nextID(0) {
+		createPopulation(size, layers);
 	}
 
 	NNPopulation(const std::string& name)
-		: m_name(name) {
+		: m_name(name)
+		, m_nextID(0) {
 		loadFromDisk(name);
 	}
 
-	NNPopulation(NNPopulation&& other) :
-		m_name(std::move(other.m_name)),
-		m_sessionsTrained(std::move(other.m_sessionsTrained)),
-		m_generation(std::move(m_generation)),
-		m_population(std::move(other.m_population)),
-		m_minEvolValue(std::move(other.m_minEvolValue)),
-		m_maxEvolValue(std::move(other.m_maxEvolValue)) {
+	NNPopulation(NNPopulation&& other)
+		: m_name(std::move(other.m_name))
+		, m_sessionsTrained(std::move(other.m_sessionsTrained))
+		, m_generation(std::move(m_generation))
+		, m_population(std::move(other.m_population))
+		, m_minEvolValue(std::move(other.m_minEvolValue))
+		, m_maxEvolValue(std::move(other.m_maxEvolValue))
+		, m_nextID(std::move(other.m_nextID)) {
 	}
 
 	inline NNPopulation& operator=(NNPopulation&& other) {
@@ -742,6 +760,7 @@ public:
 		m_population = std::move(other.m_population);
 		m_minEvolValue = std::move(other.m_minEvolValue);
 		m_maxEvolValue = std::move(other.m_maxEvolValue);
+		m_nextID = std::move(other.m_nextID);
 		return *this;
 	}
 
@@ -796,19 +815,28 @@ public:
 			return false;
 		}
 
+		bool result = false;
 		switch (headerVersion) {
 		case 1:
-			return loadVersion1(&file);
-		default:
+			result = loadVersion1(&file);
 			break;
+		default:
+			return false;
 		}
-		return false;
+
+		if (!result) {
+			return false;
+		}
+
+		recalculateIDs();
+		return true;
 	}
 
 	void clearAll() {
 		m_population.clear();
 		m_generation = 0;
 		m_sessionsTrained = 0;
+		m_nextID = 0;
 	}
 
 	inline const T& getMinEvolValue() const {
@@ -875,7 +903,9 @@ public:
 			<< ", Trained sessions: " << m_sessionsTrained
 			<< ", Trained sessions this gen: " << m_sessionsTrainedThisGen << '\n';
 		const NNAi<T>& best = getBestNNAiConstRef();
-		std::cout << "Best score: " << best.getScore() << ", times trained: " << best.getSessionsTrained() << '\n';
+		std::cout << "Best score: " << best.getScore()
+			<< ", times trained: " << best.getSessionsTrained()
+			<< ", with ID: " << best.getID() << '\n';
 		float avg = 0;
 		for (const auto& nnai : m_population) {
 			avg += nnai.getScore();
@@ -888,6 +918,10 @@ public:
 		return *std::max_element(m_population.begin(), m_population.end());
 	}
 
+	inline ulong assignNextID() {
+		return m_nextID++;
+	}
+
 private:
 	std::vector<NNAi<T>> m_population;
 	uint m_generation;
@@ -896,6 +930,33 @@ private:
 	std::string m_name;
 	T m_minEvolValue;
 	T m_maxEvolValue;
+	ulong m_nextID;
+
+	void createPopulation(uint size, const std::vector<std::vector<uint>>& layers) {
+		for (uint i = 0; i < size; ++i) {
+			m_population.emplace_back(m_nextID++, layers);
+		}
+	}
+
+	void recalculateIDs() {
+		if (m_population.empty()) {
+			return;
+		}
+
+		auto cmpID = [&](const NNAi<T>& n0, const NNAi<T>& n1) {
+			return n0.getID() < n1.getID();
+		};
+		std::sort(m_population.begin(), m_population.end(), cmpID);
+
+		m_nextID = m_population[0].getID();
+		for (size_t i = 1; i < m_population.size(); ++i) {
+			if (m_population[i].getID() == m_nextID) {
+				m_population[i].setID(m_nextID + 1);
+			}
+			m_nextID = m_population[i].getID();
+		}
+		m_nextID++;
+	}
 
 	bool saveHeader(std::ofstream* saveFile) const {
 		return saveFile->write(reinterpret_cast<const char*>(HEADER_STR_NNPP.data()), sizeof(HEADER_STR_NNPP.size()))
@@ -1066,8 +1127,12 @@ private:
 		assert(nnai0 != nnai1);
 		assert(nnai0 < m_trainee->getPopulationSize());
 		assert(nnai1 < m_trainee->getPopulationSize());
-		return NNAi<T>(m_trainee->getConstRefAt(nnai0), m_trainee->getConstRefAt(nnai1),
-			MUTATION_CHANCE, minEvolValue, maxEvolValue);
+		return NNAi<T>(m_trainee->assignNextID()
+					, m_trainee->getConstRefAt(nnai0)
+					, m_trainee->getConstRefAt(nnai1)
+					, MUTATION_CHANCE
+					, minEvolValue
+					, maxEvolValue);
 	}
 
 	inline void onSessionComplete(const std::vector<NNPPTrainingUpdate<T>>& scoreUpdates) {
