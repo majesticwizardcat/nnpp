@@ -950,7 +950,7 @@ private:
 
 		m_nextID = m_population[0].getID();
 		for (size_t i = 1; i < m_population.size(); ++i) {
-			if (m_population[i].getID() == m_nextID) {
+			if (m_population[i].getID() <= m_nextID) {
 				m_population[i].setID(m_nextID + 1);
 			}
 			m_nextID = m_population[i].getID();
