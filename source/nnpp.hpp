@@ -26,7 +26,7 @@ static const uint MAX_NEURONS_PER_LAYER = 512;
 static const uint LAYER_EXTRAS = 5;
 static const float EXTRAS_PROB = 0.3f;
 static const float DEFAULT_MUTATION_CHANCE = 0.05f;
-static const float ADD_LAYERS_CHANCE = 0.7f;
+static const float ADD_LAYERS_CHANCE = 0.5f;
 
 inline float normalize(float value, float min, float max) {
 	return (value - min) / (max - min);
