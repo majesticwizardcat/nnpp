@@ -26,6 +26,7 @@ static const uint MAX_NEURONS_PER_LAYER = 512;
 static const uint LAYER_EXTRAS = 5;
 static const float EXTRAS_PROB = 0.3f;
 static const float DEFAULT_MUTATION_CHANCE = 0.05f;
+static const float ADD_LAYERS_CHANCE = 0.7f;
 
 inline float normalize(float value, float min, float max) {
 	return (value - min) / (max - min);
@@ -142,7 +143,7 @@ public:
 			if (i > 0 && i < n0.m_layerSizes.size() - 1) {
 				uint extras = realDist(dev) < EXTRAS_PROB ? static_cast<uint>((LAYER_EXTRAS + 1) * realDist(dev)) : 0;
 				m_layerSizes[i] = (n0.m_layerSizes[i] + n1.m_layerSizes[i]) / 2;
-				if (realDist(dev) < 0.5f) {
+				if (realDist(dev) < ADD_LAYERS_CHANCE) {
 					m_layerSizes[i] += extras;
 				}
 				else if (m_layerSizes[i] > extras) {
