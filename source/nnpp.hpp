@@ -27,6 +27,7 @@ static const uint LAYER_EXTRAS = 5;
 static const float EXTRAS_PROB = 0.3f;
 static const float DEFAULT_MUTATION_CHANCE = 0.05f;
 static const float ADD_LAYERS_CHANCE = 0.5f;
+static const float TARGET_DECREASE_RATE = 0.0005f;
 
 inline float normalize(float value, float min, float max) {
 	return (value - min) / (max - min);
@@ -1064,11 +1065,17 @@ public:
 	void evolve() {
 		std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 		std::random_device dev;
+
 		float min = m_trainee->getMinScoreNNAi().getScore();
 		float max = m_trainee->getMaxScoreNNAi().getScore();
 		assert(min <= max);
+
 		std::vector<uint> replaced;
 		for (uint i = 0; i < m_trainee->getPopulationSize(); ++i) {
+			if (m_trainee->getConstRefAt(i).getSessionsTrained() == 0) {
+				continue;
+			}
+
 			float normalizedScore = 0.0f;
 			if (max > min) {
 				normalizedScore = normalize(m_trainee->getNNAiPtrAt(i)->getScore(), min, max);
@@ -1078,12 +1085,14 @@ public:
 			}
 			assert(normalizedScore >= 0.0f);
 			assert(normalizedScore <= 1.0f);
+
 			if (normalizedScore < dist(dev)) {
 				replaced.push_back(i);
 			}
 		}
 		assert(min == max || replaced.size() > 0);
 		assert(min == max || replaced.size() != m_trainee->getPopulationSize());
+
 		std::uniform_int_distribution<uint> intDist(0, m_trainee->getPopulationSize() - 1);
 		for (uint r : replaced) {
 			m_trainee->replace(r, createEvolvedNNAi(r, &intDist, &dev, min, max, dist(dev)));
@@ -1112,23 +1121,25 @@ private:
 		uint nnai1 = index;
 
 		float target = targetScore;
-		while (nnai0 == index
-			|| normalize(m_trainee->getConstRefAt(nnai0).getScore(), minScore, maxScore) > target) {
+		while (!(nnai0 != index && normalize(m_trainee->getConstRefAt(nnai0).getScore(), minScore, maxScore) >= target)) {
 			nnai0 = (*dist)(*dev);
-			target += 0.001f;
+			target -= TARGET_DECREASE_RATE;
 		}
+		assert(normalize(m_trainee->getConstRefAt(nnai0).getScore(), minScore, maxScore) >= target);
 
 		target = targetScore;
-		while (nnai1 == index || nnai1 == nnai0
-			|| normalize(m_trainee->getConstRefAt(nnai1).getScore(), minScore, maxScore) > target) {
+		while (!(nnai1 != index && nnai1 != nnai0 && normalize(m_trainee->getConstRefAt(nnai1).getScore(), minScore, maxScore) >= target)) {
 			nnai1 = (*dist)(*dev);
-			target += 0.001f;
+			target -= TARGET_DECREASE_RATE;
 		}
+		assert(normalize(m_trainee->getConstRefAt(nnai1).getScore(), minScore, maxScore) >= target);
+
 		assert(index != nnai0);
 		assert(index != nnai1);
 		assert(nnai0 != nnai1);
 		assert(nnai0 < m_trainee->getPopulationSize());
 		assert(nnai1 < m_trainee->getPopulationSize());
+
 		return NNAi<T>(m_trainee->assignNextID()
 					, m_trainee->getConstRefAt(nnai0)
 					, m_trainee->getConstRefAt(nnai1)
