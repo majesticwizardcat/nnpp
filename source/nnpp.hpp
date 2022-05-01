@@ -25,7 +25,7 @@ static const std::string HEADER_STR_NNPP = "NNPP";
 static const uint MAX_NEURONS_PER_LAYER = 512;
 static const uint LAYER_EXTRAS = 5;
 static const float EXTRAS_PROB = 0.3f;
-static const float MUTATION_CHANCE = 0.05f;
+static const float DEFAULT_MUTATION_CHANCE = 0.05f;
 
 inline float normalize(float value, float min, float max) {
 	return (value - min) / (max - min);
@@ -1095,6 +1095,7 @@ protected:
 
 	virtual std::vector<NNPPTrainingUpdate<T>> runSession() = 0;
 	virtual uint sessionsTillEvolution() const = 0;
+	virtual float getMutationChance() const { return DEFAULT_MUTATION_CHANCE; }
 
 private:
 	uint m_sessions;
@@ -1130,7 +1131,7 @@ private:
 		return NNAi<T>(m_trainee->assignNextID()
 					, m_trainee->getConstRefAt(nnai0)
 					, m_trainee->getConstRefAt(nnai1)
-					, MUTATION_CHANCE
+					, getMutationChance()
 					, minEvolValue
 					, maxEvolValue);
 	}
