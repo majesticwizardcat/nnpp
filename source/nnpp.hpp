@@ -23,10 +23,10 @@ static const uint VERSION_NNPP = 1;
 static const std::string HEADER_STR_NNPP = "NNPP";
 
 static const uint MAX_NEURONS_PER_LAYER = 512;
-static const uint LAYER_EXTRAS = 5;
-static const float EXTRAS_PROB = 0.3f;
-static const float DEFAULT_MUTATION_CHANCE = 0.05f;
-static const float ADD_LAYERS_CHANCE = 0.5f;
+static const float DEFAULT_WEIGHT_MUTATION_CHANCE = 0.05f;
+static const uint DEFAULT_MAX_LAYER_MUTATION = 5;
+static const float DEFAULT_LAYER_MUTATION_CHANCE = 0.3f;
+static const float DEFAULT_LAYER_ADDITION_CHANCE = 0.5f;
 static const float TARGET_DECREASE_RATE = 0.0005f;
 
 inline float normalize(float value, float min, float max) {
@@ -72,6 +72,26 @@ private:
 	uint m_size;
 	std::array<T, N> m_array;
 };
+
+struct MutationInfo {
+	float weightMutationChance;
+	float layerMutationChance;
+	float layerAdditionChance;
+	uint maxLayersMutation;
+
+	MutationInfo(float weightMutationChance, float layerMutationChance, float layerAdditionChance, uint maxLayersMutation)
+		: weightMutationChance(weightMutationChance)
+		, layerMutationChance(layerMutationChance)
+		, layerAdditionChance(layerAdditionChance)
+		, maxLayersMutation(maxLayersMutation) { }
+};
+
+static const MutationInfo DEFAULT_MUTATION_INFO (
+		DEFAULT_WEIGHT_MUTATION_CHANCE
+		, DEFAULT_LAYER_MUTATION_CHANCE
+		, DEFAULT_LAYER_ADDITION_CHANCE
+		, DEFAULT_MAX_LAYER_MUTATION
+);
 
 template <typename T> using NNPPStackVector = StackVector<T, MAX_NEURONS_PER_LAYER>;
 
@@ -121,15 +141,16 @@ public:
 		}
 	}
 
-	NeuralNetwork(const NeuralNetwork<T>& n0, const NeuralNetwork<T>& n1, float mutationChance, const T& minValue, const T& maxValue) {
-		initFromParents(n0, n1, mutationChance, minValue, maxValue);
+	NeuralNetwork(const NeuralNetwork<T>& n0, const NeuralNetwork<T>& n1, const MutationInfo& mutationInfo, const T& minValue, const T& maxValue) {
+		initFromParents(n0, n1, mutationInfo, minValue, maxValue);
 	}
 
-	void initFromParents(const NeuralNetwork<T>& n0, const NeuralNetwork<T>& n1, float mutationChance, const T& minValue, const T& maxValue) {
+	void initFromParents(const NeuralNetwork<T>& n0, const NeuralNetwork<T>& n1, const MutationInfo& mutationInfo, const T& minValue, const T& maxValue) {
 		assert(n0.m_layerSizes.size() == n1.m_layerSizes.size());
 
 		std::uniform_real_distribution<float> realDist(0.0f, 1.0f);
 		std::uniform_real_distribution<T> mutationValueDist(minValue, maxValue);
+		std::uniform_int_distribution<uint> layerMutation(1, mutationInfo.maxLayersMutation);
 		std::random_device dev;
 		const T* dataN0 = n0.m_data.get();
 		const T* dataN1 = n1.m_data.get();
@@ -142,9 +163,9 @@ public:
 		m_layerSizes.resize(n0.m_layerSizes.size());
 		for (uint i = 0; i < n0.m_layerSizes.size(); ++i) {
 			if (i > 0 && i < n0.m_layerSizes.size() - 1) {
-				uint extras = realDist(dev) < EXTRAS_PROB ? static_cast<uint>((LAYER_EXTRAS + 1) * realDist(dev)) : 0;
+				uint extras = realDist(dev) < mutationInfo.layerMutationChance ? layerMutation(dev) : 0;
 				m_layerSizes[i] = (n0.m_layerSizes[i] + n1.m_layerSizes[i]) / 2;
-				if (realDist(dev) < ADD_LAYERS_CHANCE) {
+				if (realDist(dev) < mutationInfo.layerAdditionChance) {
 					m_layerSizes[i] += extras;
 				}
 				else if (m_layerSizes[i] > extras) {
@@ -169,7 +190,7 @@ public:
 				for (uint fn = 0; fn < m_layerSizes[tl - 1]; ++fn) {
 					T* weightPtr = weightPtrAt(fn, tn, tl);
 					float mutation = realDist(dev);
-					if (mutation < mutationChance || tn >= minLayerSizes[tl] || fn >= minLayerSizes[tl - 1]) {
+					if (mutation < mutationInfo.weightMutationChance || tn >= minLayerSizes[tl] || fn >= minLayerSizes[tl - 1]) {
 						*weightPtr = mutationValueDist(dev);
 					}
 					else {
@@ -183,7 +204,7 @@ public:
 			for (uint n = 0; n < m_layerSizes[l]; ++n) {
 				T* biasPtr = neuronBiasPtrAt(n, l);
 				float mutation = realDist(dev);
-				if (mutation < mutationChance || n >= minLayerSizes[l]) {
+				if (mutation < mutationInfo.weightMutationChance || n >= minLayerSizes[l]) {
 					*biasPtr = mutationValueDist(dev);
 				}
 				else {
@@ -507,8 +528,8 @@ public:
 		}
 	}
 
-	NNAi(ulong id, const NNAi& nnai0, const NNAi& nnai1, float mutationChance, const T& minValue, const T& maxValue) {
-		initFromParents(id, nnai0, nnai1, mutationChance, minValue, maxValue);
+	NNAi(ulong id, const NNAi& nnai0, const NNAi& nnai1, const MutationInfo& mutationInfo, const T& minValue, const T& maxValue) {
+		initFromParents(id, nnai0, nnai1, mutationInfo, minValue, maxValue);
 	}
 
 	NNAi(NNAi&& other)
@@ -536,14 +557,13 @@ public:
 		}
 	}
 
-	void initFromParents(ulong id, const NNAi& nnai0, const NNAi& nnai1, float mutationChance, const T& minValue, const T& maxValue) {
+	void initFromParents(ulong id, const NNAi& nnai0, const NNAi& nnai1, const MutationInfo& mutationInfo, const T& minValue, const T& maxValue) {
 		assert(nnai0.getNetworksNumber() == nnai1.getNetworksNumber());
 		clearAll();
 		m_id = id;
 		m_score = (nnai0.getScore() + nnai1.getScore()) * 0.5f;
 		for (uint i = 0; i < nnai0.getNetworksNumber(); ++i) {
-			m_networks.emplace_back(nnai0.getConstRefAt(i), nnai1.getConstRefAt(i),
-									mutationChance, minValue, maxValue);
+			m_networks.emplace_back(nnai0.getConstRefAt(i), nnai1.getConstRefAt(i), mutationInfo, minValue, maxValue);
 		}
 	}
 
@@ -1105,7 +1125,10 @@ protected:
 
 	virtual std::vector<NNPPTrainingUpdate<T>> runSession() = 0;
 	virtual uint sessionsTillEvolution() const = 0;
-	virtual float getMutationChance() const { return DEFAULT_MUTATION_CHANCE; }
+
+	virtual const MutationInfo& getMutationInfo() const {
+		return DEFAULT_MUTATION_INFO;
+	}
 
 private:
 	uint m_sessions;
@@ -1143,7 +1166,7 @@ private:
 		return NNAi<T>(m_trainee->assignNextID()
 					, m_trainee->getConstRefAt(nnai0)
 					, m_trainee->getConstRefAt(nnai1)
-					, getMutationChance()
+					, getMutationInfo()
 					, minEvolValue
 					, maxEvolValue);
 	}
