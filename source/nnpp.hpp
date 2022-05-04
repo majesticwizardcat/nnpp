@@ -79,19 +79,14 @@ struct MutationInfo {
 	float layerAdditionChance;
 	uint maxLayersMutation;
 
+	MutationInfo() { }
+
 	MutationInfo(float weightMutationChance, float layerMutationChance, float layerAdditionChance, uint maxLayersMutation)
 		: weightMutationChance(weightMutationChance)
 		, layerMutationChance(layerMutationChance)
 		, layerAdditionChance(layerAdditionChance)
 		, maxLayersMutation(maxLayersMutation) { }
 };
-
-static const MutationInfo DEFAULT_MUTATION_INFO (
-		DEFAULT_WEIGHT_MUTATION_CHANCE
-		, DEFAULT_LAYER_MUTATION_CHANCE
-		, DEFAULT_LAYER_ADDITION_CHANCE
-		, DEFAULT_MAX_LAYER_MUTATION
-);
 
 template <typename T> using NNPPStackVector = StackVector<T, MAX_NEURONS_PER_LAYER>;
 
@@ -1113,9 +1108,11 @@ public:
 		assert(min == max || replaced.size() > 0);
 		assert(min == max || replaced.size() != m_trainee->getPopulationSize());
 
+		MutationInfo mutationInfo;
+		setMutationInfo(&mutationInfo);
 		std::uniform_int_distribution<uint> intDist(0, m_trainee->getPopulationSize() - 1);
 		for (uint r : replaced) {
-			m_trainee->replace(r, createEvolvedNNAi(r, &intDist, &dev, min, max, dist(dev)));
+			m_trainee->replace(r, createEvolvedNNAi(r, &intDist, &dev, min, max, dist(dev), mutationInfo));
 		}
 		m_trainee->evolutionCompleted();
 	}
@@ -1126,8 +1123,11 @@ protected:
 	virtual std::vector<NNPPTrainingUpdate<T>> runSession() = 0;
 	virtual uint sessionsTillEvolution() const = 0;
 
-	virtual const MutationInfo& getMutationInfo() const {
-		return DEFAULT_MUTATION_INFO;
+	virtual void setMutationInfo(MutationInfo* mutationInfo) const {
+		mutationInfo->weightMutationChance = DEFAULT_WEIGHT_MUTATION_CHANCE;
+		mutationInfo->layerAdditionChance = DEFAULT_LAYER_ADDITION_CHANCE;
+		mutationInfo->layerMutationChance = DEFAULT_LAYER_MUTATION_CHANCE;
+		mutationInfo->maxLayersMutation = DEFAULT_MAX_LAYER_MUTATION;
 	}
 
 private:
@@ -1137,7 +1137,7 @@ private:
 	std::mutex m_onSessionCompleteMutex;
 
 	NNAi<T> createEvolvedNNAi(uint index, std::uniform_int_distribution<uint>* const dist,
-		std::random_device* const dev, float minScore, float maxScore, float targetScore) const {
+		std::random_device* const dev, float minScore, float maxScore, float targetScore, const MutationInfo& mutationInfo) const {
 		const T& minEvolValue = m_trainee->getMinEvolValue();
 		const T& maxEvolValue = m_trainee->getMaxEvolValue();
 		uint nnai0 = index;
@@ -1166,7 +1166,7 @@ private:
 		return NNAi<T>(m_trainee->assignNextID()
 					, m_trainee->getConstRefAt(nnai0)
 					, m_trainee->getConstRefAt(nnai1)
-					, getMutationInfo()
+					, mutationInfo
 					, minEvolValue
 					, maxEvolValue);
 	}
