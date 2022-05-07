@@ -145,7 +145,7 @@ public:
 
 		std::uniform_real_distribution<float> realDist(0.0f, 1.0f);
 		std::uniform_real_distribution<T> mutationValueDist(minValue, maxValue);
-		std::uniform_int_distribution<uint> layerMutation(1, mutationInfo.maxLayersMutation);
+		std::uniform_int_distribution<uint> layerMutation(0, mutationInfo.maxLayersMutation);
 		std::random_device dev;
 		const T* dataN0 = n0.m_data.get();
 		const T* dataN1 = n1.m_data.get();
@@ -677,6 +677,10 @@ public:
 		return m_score;
 	}
 
+	inline float getAvgScore() const {
+		return m_sessionsTrained == 0 ? 0.0f : m_score / static_cast<float>(m_sessionsTrained);
+	}
+
 	inline bool operator<(const NNAi& other) const {
 		return m_score < other.m_score;
 	}
@@ -1081,9 +1085,9 @@ public:
 		std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 		std::random_device dev;
 
-		float min = m_trainee->getMinScoreNNAi().getScore();
-		float max = m_trainee->getMaxScoreNNAi().getScore();
-		assert(min <= max);
+		float minFitness = getFitnessForNNAi(m_trainee->getMinScoreNNAi());
+		float maxFitness = getFitnessForNNAi(m_trainee->getMaxScoreNNAi());
+		assert(minFitness <= maxFitness);
 
 		std::vector<uint> replaced;
 		for (uint i = 0; i < m_trainee->getPopulationSize(); ++i) {
@@ -1091,28 +1095,28 @@ public:
 				continue;
 			}
 
-			float normalizedScore = 0.0f;
-			if (max > min) {
-				normalizedScore = normalize(m_trainee->getNNAiPtrAt(i)->getScore(), min, max);
+			float normalizedFitness = 0.0f;
+			if (maxFitness > minFitness) {
+				normalizedFitness = normalize(getFitnessForNNAi(m_trainee->getConstRefAt(i)), minFitness, maxFitness);
 			}
 			else {
-				normalizedScore = 1.0f / static_cast<float>(m_trainee->getPopulationSize());
+				normalizedFitness = 1.0f / static_cast<float>(m_trainee->getPopulationSize());
 			}
-			assert(normalizedScore >= 0.0f);
-			assert(normalizedScore <= 1.0f);
+			assert(normalizedFitness >= 0.0f);
+			assert(normalizedFitness <= 1.0f);
 
-			if (normalizedScore < dist(dev)) {
+			if (normalizedFitness < dist(dev)) {
 				replaced.push_back(i);
 			}
 		}
-		assert(min == max || replaced.size() > 0);
-		assert(min == max || replaced.size() != m_trainee->getPopulationSize());
+		assert(minFitness == maxFitness || replaced.size() > 0);
+		assert(minFitness == maxFitness || replaced.size() != m_trainee->getPopulationSize());
 
 		MutationInfo mutationInfo;
 		setMutationInfo(&mutationInfo);
 		std::uniform_int_distribution<uint> intDist(0, m_trainee->getPopulationSize() - 1);
 		for (uint r : replaced) {
-			m_trainee->replace(r, createEvolvedNNAi(r, &intDist, &dev, min, max, dist(dev), mutationInfo));
+			m_trainee->replace(r, createEvolvedNNAi(r, &intDist, &dev, minFitness, maxFitness, dist(dev), mutationInfo));
 		}
 		m_trainee->evolutionCompleted();
 	}
@@ -1122,6 +1126,7 @@ protected:
 
 	virtual std::vector<NNPPTrainingUpdate<T>> runSession() = 0;
 	virtual uint sessionsTillEvolution() const = 0;
+	virtual float getAvgScoreImportance() const { return 0.0f; }
 
 	virtual void setMutationInfo(MutationInfo* mutationInfo) const {
 		mutationInfo->weightMutationChance = DEFAULT_WEIGHT_MUTATION_CHANCE;
@@ -1137,25 +1142,25 @@ private:
 	std::mutex m_onSessionCompleteMutex;
 
 	NNAi<T> createEvolvedNNAi(uint index, std::uniform_int_distribution<uint>* const dist,
-		std::random_device* const dev, float minScore, float maxScore, float targetScore, const MutationInfo& mutationInfo) const {
+		std::random_device* const dev, float minFitness, float maxFitness, float fitnessTarget, const MutationInfo& mutationInfo) const {
 		const T& minEvolValue = m_trainee->getMinEvolValue();
 		const T& maxEvolValue = m_trainee->getMaxEvolValue();
 		uint nnai0 = index;
 		uint nnai1 = index;
 
-		float target = targetScore;
-		while (!(nnai0 != index && normalize(m_trainee->getConstRefAt(nnai0).getScore(), minScore, maxScore) >= target)) {
+		float target = fitnessTarget;
+		while (!(nnai0 != index && normalize(getFitnessForNNAi(m_trainee->getConstRefAt(nnai0)), minFitness, maxFitness) >= target)) {
 			nnai0 = (*dist)(*dev);
 			target -= TARGET_DECREASE_RATE;
 		}
-		assert(normalize(m_trainee->getConstRefAt(nnai0).getScore(), minScore, maxScore) >= target);
+		assert(normalize(getFitnessForNNAi(m_trainee->getConstRefAt(nnai0)), minFitness, maxFitness) >= target);
 
-		target = targetScore;
-		while (!(nnai1 != index && nnai1 != nnai0 && normalize(m_trainee->getConstRefAt(nnai1).getScore(), minScore, maxScore) >= target)) {
+		target = fitnessTarget;
+		while (!(nnai1 != index && nnai1 != nnai0 && normalize(getFitnessForNNAi(m_trainee->getConstRefAt(nnai1)), minFitness, maxFitness) >= target)) {
 			nnai1 = (*dist)(*dev);
 			target -= TARGET_DECREASE_RATE;
 		}
-		assert(normalize(m_trainee->getConstRefAt(nnai1).getScore(), minScore, maxScore) >= target);
+		assert(normalize(getFitnessForNNAi(m_trainee->getConstRefAt(nnai1)), minFitness, maxFitness) >= target);
 
 		assert(index != nnai0);
 		assert(index != nnai1);
@@ -1193,6 +1198,11 @@ private:
 
 	inline bool shouldEvolve() const {
 		return sessionsTillEvolution() == 0;
+	}
+
+	inline float getFitnessForNNAi(const NNAi<T>& nnai) const {
+		const float avgImportance = std::max(0.0f, std::min(1.0f, getAvgScoreImportance()));
+		return avgImportance * nnai.getAvgScore() + (1.0f - avgImportance) * nnai.getScore();
 	}
 
 };
