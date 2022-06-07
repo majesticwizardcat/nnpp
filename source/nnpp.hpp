@@ -28,6 +28,8 @@ static const uint DEFAULT_MAX_LAYER_MUTATION = 5;
 static const float DEFAULT_LAYER_MUTATION_CHANCE = 0.3f;
 static const float DEFAULT_LAYER_ADDITION_CHANCE = 0.5f;
 static const float TARGET_DECREASE_RATE = 0.0005f;
+static const float DEFAULT_CHILD_REGRESSION_PERCENTAGE = 0.95f;
+static const uint DEFUALT_MIN_TRAINING_SESSIONS_REQUIRED = 1;
 
 inline float normalize(float value, float min, float max) {
 	return (value - min) / (max - min);
@@ -73,19 +75,13 @@ private:
 	std::array<T, N> m_array;
 };
 
-struct MutationInfo {
+struct EvolutionInfo {
+	float childRegressionPercentage;
 	float weightMutationChance;
 	float layerMutationChance;
 	float layerAdditionChance;
 	uint maxLayersMutation;
-
-	MutationInfo() { }
-
-	MutationInfo(float weightMutationChance, float layerMutationChance, float layerAdditionChance, uint maxLayersMutation)
-		: weightMutationChance(weightMutationChance)
-		, layerMutationChance(layerMutationChance)
-		, layerAdditionChance(layerAdditionChance)
-		, maxLayersMutation(maxLayersMutation) { }
+	uint minTrainingSessionsRequired;
 };
 
 template <typename T> using NNPPStackVector = StackVector<T, MAX_NEURONS_PER_LAYER>;
@@ -136,16 +132,16 @@ public:
 		}
 	}
 
-	NeuralNetwork(const NeuralNetwork<T>& n0, const NeuralNetwork<T>& n1, const MutationInfo& mutationInfo, const T& minValue, const T& maxValue) {
-		initFromParents(n0, n1, mutationInfo, minValue, maxValue);
+	NeuralNetwork(const NeuralNetwork<T>& n0, const NeuralNetwork<T>& n1, const EvolutionInfo& evolutionInfo, const T& minValue, const T& maxValue) {
+		initFromParents(n0, n1, evolutionInfo, minValue, maxValue);
 	}
 
-	void initFromParents(const NeuralNetwork<T>& n0, const NeuralNetwork<T>& n1, const MutationInfo& mutationInfo, const T& minValue, const T& maxValue) {
+	void initFromParents(const NeuralNetwork<T>& n0, const NeuralNetwork<T>& n1, const EvolutionInfo& evolutionInfo, const T& minValue, const T& maxValue) {
 		assert(n0.m_layerSizes.size() == n1.m_layerSizes.size());
 
 		std::uniform_real_distribution<float> realDist(0.0f, 1.0f);
 		std::uniform_real_distribution<T> mutationValueDist(minValue, maxValue);
-		std::uniform_int_distribution<uint> layerMutation(0, mutationInfo.maxLayersMutation);
+		std::uniform_int_distribution<uint> layerMutation(0, evolutionInfo.maxLayersMutation);
 		std::random_device dev;
 		const T* dataN0 = n0.m_data.get();
 		const T* dataN1 = n1.m_data.get();
@@ -158,9 +154,9 @@ public:
 		m_layerSizes.resize(n0.m_layerSizes.size());
 		for (uint i = 0; i < n0.m_layerSizes.size(); ++i) {
 			if (i > 0 && i < n0.m_layerSizes.size() - 1) {
-				uint extras = realDist(dev) < mutationInfo.layerMutationChance ? layerMutation(dev) : 0;
+				uint extras = realDist(dev) < evolutionInfo.layerMutationChance ? layerMutation(dev) : 0;
 				m_layerSizes[i] = (n0.m_layerSizes[i] + n1.m_layerSizes[i]) / 2;
-				if (realDist(dev) < mutationInfo.layerAdditionChance) {
+				if (realDist(dev) < evolutionInfo.layerAdditionChance) {
 					m_layerSizes[i] += extras;
 				}
 				else if (m_layerSizes[i] > extras) {
@@ -185,7 +181,7 @@ public:
 				for (uint fn = 0; fn < m_layerSizes[tl - 1]; ++fn) {
 					T* weightPtr = weightPtrAt(fn, tn, tl);
 					float mutation = realDist(dev);
-					if (mutation < mutationInfo.weightMutationChance || tn >= minLayerSizes[tl] || fn >= minLayerSizes[tl - 1]) {
+					if (mutation < evolutionInfo.weightMutationChance || tn >= minLayerSizes[tl] || fn >= minLayerSizes[tl - 1]) {
 						*weightPtr = mutationValueDist(dev);
 					}
 					else {
@@ -199,7 +195,7 @@ public:
 			for (uint n = 0; n < m_layerSizes[l]; ++n) {
 				T* biasPtr = neuronBiasPtrAt(n, l);
 				float mutation = realDist(dev);
-				if (mutation < mutationInfo.weightMutationChance || n >= minLayerSizes[l]) {
+				if (mutation < evolutionInfo.weightMutationChance || n >= minLayerSizes[l]) {
 					*biasPtr = mutationValueDist(dev);
 				}
 				else {
@@ -523,8 +519,8 @@ public:
 		}
 	}
 
-	NNAi(ulong id, const NNAi& nnai0, const NNAi& nnai1, const MutationInfo& mutationInfo, const T& minValue, const T& maxValue) {
-		initFromParents(id, nnai0, nnai1, mutationInfo, minValue, maxValue);
+	NNAi(ulong id, const NNAi& nnai0, const NNAi& nnai1, const EvolutionInfo& evolutionInfo, const T& minValue, const T& maxValue) {
+		initFromParents(id, nnai0, nnai1, evolutionInfo, minValue, maxValue);
 	}
 
 	NNAi(NNAi&& other)
@@ -552,13 +548,13 @@ public:
 		}
 	}
 
-	void initFromParents(ulong id, const NNAi& nnai0, const NNAi& nnai1, const MutationInfo& mutationInfo, const T& minValue, const T& maxValue) {
+	void initFromParents(ulong id, const NNAi& nnai0, const NNAi& nnai1, const EvolutionInfo& evolutionInfo, const T& minValue, const T& maxValue) {
 		assert(nnai0.getNetworksNumber() == nnai1.getNetworksNumber());
 		clearAll();
 		m_id = id;
-		m_score = (nnai0.getScore() + nnai1.getScore()) * 0.5f;
+		m_score = (nnai0.getScore() + nnai1.getScore()) * 0.5f * evolutionInfo.childRegressionPercentage;
 		for (uint i = 0; i < nnai0.getNetworksNumber(); ++i) {
-			m_networks.emplace_back(nnai0.getConstRefAt(i), nnai1.getConstRefAt(i), mutationInfo, minValue, maxValue);
+			m_networks.emplace_back(nnai0.getConstRefAt(i), nnai1.getConstRefAt(i), evolutionInfo, minValue, maxValue);
 		}
 	}
 
@@ -1089,9 +1085,12 @@ public:
 		float maxFitness = getFitnessForNNAi(m_trainee->getMaxScoreNNAi());
 		assert(minFitness <= maxFitness);
 
+		EvolutionInfo evolutionInfo;
+		setEvolutionInfo(&evolutionInfo);
+
 		std::vector<uint> replaced;
 		for (uint i = 0; i < m_trainee->getPopulationSize(); ++i) {
-			if (m_trainee->getConstRefAt(i).getSessionsTrained() == 0) {
+			if (m_trainee->getConstRefAt(i).getSessionsTrained() < evolutionInfo.minTrainingSessionsRequired) {
 				continue;
 			}
 
@@ -1112,11 +1111,9 @@ public:
 		assert(minFitness == maxFitness || replaced.size() > 0);
 		assert(minFitness == maxFitness || replaced.size() != m_trainee->getPopulationSize());
 
-		MutationInfo mutationInfo;
-		setMutationInfo(&mutationInfo);
 		std::uniform_int_distribution<uint> intDist(0, m_trainee->getPopulationSize() - 1);
 		for (uint r : replaced) {
-			m_trainee->replace(r, createEvolvedNNAi(r, &intDist, &dev, minFitness, maxFitness, dist(dev), mutationInfo));
+			m_trainee->replace(r, createEvolvedNNAi(r, &intDist, &dev, minFitness, maxFitness, dist(dev), evolutionInfo));
 		}
 		m_trainee->evolutionCompleted();
 	}
@@ -1128,11 +1125,13 @@ protected:
 	virtual uint sessionsTillEvolution() const = 0;
 	virtual float getAvgScoreImportance() const { return 0.0f; }
 
-	virtual void setMutationInfo(MutationInfo* mutationInfo) const {
-		mutationInfo->weightMutationChance = DEFAULT_WEIGHT_MUTATION_CHANCE;
-		mutationInfo->layerAdditionChance = DEFAULT_LAYER_ADDITION_CHANCE;
-		mutationInfo->layerMutationChance = DEFAULT_LAYER_MUTATION_CHANCE;
-		mutationInfo->maxLayersMutation = DEFAULT_MAX_LAYER_MUTATION;
+	virtual void setEvolutionInfo(EvolutionInfo* evolutionInfo) const {
+		evolutionInfo->weightMutationChance = DEFAULT_WEIGHT_MUTATION_CHANCE;
+		evolutionInfo->layerAdditionChance = DEFAULT_LAYER_ADDITION_CHANCE;
+		evolutionInfo->layerMutationChance = DEFAULT_LAYER_MUTATION_CHANCE;
+		evolutionInfo->maxLayersMutation = DEFAULT_MAX_LAYER_MUTATION;
+		evolutionInfo->minTrainingSessionsRequired = DEFUALT_MIN_TRAINING_SESSIONS_REQUIRED;
+		evolutionInfo->childRegressionPercentage = DEFAULT_CHILD_REGRESSION_PERCENTAGE;
 	}
 
 private:
@@ -1142,7 +1141,7 @@ private:
 	std::mutex m_onSessionCompleteMutex;
 
 	NNAi<T> createEvolvedNNAi(uint index, std::uniform_int_distribution<uint>* const dist,
-		std::random_device* const dev, float minFitness, float maxFitness, float fitnessTarget, const MutationInfo& mutationInfo) const {
+		std::random_device* const dev, float minFitness, float maxFitness, float fitnessTarget, const EvolutionInfo& evolutionInfo) const {
 		const T& minEvolValue = m_trainee->getMinEvolValue();
 		const T& maxEvolValue = m_trainee->getMaxEvolValue();
 		uint nnai0 = index;
@@ -1171,7 +1170,7 @@ private:
 		return NNAi<T>(m_trainee->assignNextID()
 					, m_trainee->getConstRefAt(nnai0)
 					, m_trainee->getConstRefAt(nnai1)
-					, mutationInfo
+					, evolutionInfo
 					, minEvolValue
 					, maxEvolValue);
 	}
