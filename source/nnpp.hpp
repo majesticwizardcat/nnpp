@@ -35,7 +35,7 @@ inline float normalize(float value, float min, float max) {
 	return (value - min) / (max - min);
 }
 
-template <typename T, uint N> class StackVector {
+template <typename T, ulong N> class StackVector {
 public:
 	StackVector()
 		: m_size(0) { }
@@ -54,7 +54,7 @@ public:
 	}
 
 	inline void push(const T& val) { m_array[m_size++] = val; }
-	inline uint size() const { return m_size; }
+	inline ulong size() const { return m_size; }
 	inline auto begin() const { return m_array.begin(); }
 	inline auto end() const { return m_array.begin() + m_size; }
 	inline bool empty() const { return m_size == 0; }
@@ -71,7 +71,7 @@ public:
 	}
 
 private:
-	uint m_size;
+	ulong m_size;
 	std::array<T, N> m_array;
 };
 
