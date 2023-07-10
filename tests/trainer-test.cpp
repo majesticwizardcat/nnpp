@@ -14,7 +14,7 @@ public:
 	}
 	
 protected:
-	std::vector<NNPPTrainingUpdate<float>> runSession() {
+	std::vector<NNPPTrainingUpdate<float>> runSession(NeuronBuffer<float>& threadLocalNeuronBuffer) {
 		std::vector<NNPPTrainingUpdate<float>> results;
 		std::random_device dev;
 		std::uniform_int_distribution<uint> dist(1, 5000);

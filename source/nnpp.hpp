@@ -22,7 +22,8 @@ static const std::string HEADER_STR_NNAI = "NNPPNNAI";
 static const uint VERSION_NNPP = 1;
 static const std::string HEADER_STR_NNPP = "NNPP";
 
-static const uint MAX_NEURONS_PER_LAYER = 512;
+static const uint MAX_INPUT_OUTPUT_NEURONS = 1024;
+static const uint MAX_NEURONS_PER_LAYER = 1 << 16;
 static const float DEFAULT_WEIGHT_MUTATION_CHANCE = 0.05f;
 static const uint DEFAULT_MAX_LAYER_MUTATION = 5;
 static const float DEFAULT_LAYER_MUTATION_CHANCE = 0.3f;
@@ -84,7 +85,14 @@ struct EvolutionInfo {
 	uint minTrainingSessionsRequired;
 };
 
-template <typename T> using NNPPStackVector = StackVector<T, MAX_NEURONS_PER_LAYER>;
+template <typename T> using NNPPStackVector = StackVector<T, MAX_INPUT_OUTPUT_NEURONS>;
+
+// First half of the array is for inputs for the next layer and the other half is for the outputs
+template <typename T> using NeuronBuffer = std::vector<T>;
+
+template <typename T> static inline NeuronBuffer<T> allocNeuronBuffer() {
+	return NeuronBuffer<T>(MAX_NEURONS_PER_LAYER * 2);
+}
 
 template <typename T> class NeuralNetwork {
 public:
@@ -99,8 +107,11 @@ public:
 		, m_neuronBiases(nullptr) {
 		if (layers.size() < 3) {
 			std::cout << "Cannot init nn with less than 3 layers" << '\n';
+			assert(false);
 			return;
 		}
+		assert(layers[0] <= MAX_INPUT_OUTPUT_NEURONS);
+		assert(layers.back() <= MAX_INPUT_OUTPUT_NEURONS);
 		m_dataSize = calculateDataSize();
 		m_data = std::make_unique<T[]>(m_dataSize);
 		m_neuronBiases = std::make_unique<T[]>(getNeuronsNum());
@@ -129,6 +140,7 @@ public:
 		, m_neuronBiases(nullptr) {
 		if (!readFromStream(stream)) {
 			std::cout << "Could not read from stream" << '\n';
+			assert(false);
 		}
 	}
 
@@ -320,11 +332,10 @@ public:
 		m_neuronBiases.release();
 	}
 
-	NNPPStackVector<T> feed(const NNPPStackVector<T>& input) const {
-		NeuronsArray neurons;
-		latchInputs(input, &neurons);
-		propagate(&neurons);
-		return getOutputs(neurons);
+	NNPPStackVector<T> feed(const NNPPStackVector<T>& input, NeuronBuffer<T>& neuronBuffer) const {
+		latchInputs(input, neuronBuffer);
+		propagate(neuronBuffer);
+		return getOutputs(neuronBuffer);
 	}
 
 	bool operator==(const NeuralNetwork& other) const {
@@ -358,9 +369,6 @@ public:
 	}
 
 private:
-// First half of the array is for inputs for the next layer and the other half is for the outputs
-	typedef std::array<T, 2 * MAX_NEURONS_PER_LAYER> NeuronsArray;
-
 	ulong m_dataSize;
 	std::vector<uint> m_layerSizes;
 	std::unique_ptr<T[]> m_data;
@@ -440,31 +448,35 @@ private:
 		return m_neuronBiases.get() + neuronBiasIndex(neuron, layer);
 	}
 
-	inline void latchInputs(const NNPPStackVector<T>& inputs, NeuronsArray* const neurons) const {
+	inline void latchInputs(const NNPPStackVector<T>& inputs, NeuronBuffer<T>& neurons) const {
 		assert(m_layerSizes.size() >= 3);
 		assert(inputs.size() == *m_layerSizes.begin());
+		assert(neurons.size() >= inputs.size() * 2);
 		for (uint i = 0; i < inputs.size(); ++i) {
-			(*neurons)[i] = inputs[i] + neuronBiasAt(i, 0);
+			neurons[i] = inputs[i] + neuronBiasAt(i, 0);
 		}
 	}
 
-	inline void propagate(NeuronsArray* const neurons) const {
+	inline void propagate(NeuronBuffer<T>& neurons) const {
+		// half size is where the array for copy dest begins
+		const ulong halfSize = neurons.size() / 2;
 		for (uint l = 1; l < m_layerSizes.size(); ++l) {
+			assert(neurons.size() >= m_layerSizes[l] * 2);
 			for (uint n = 0; n < m_layerSizes[l]; ++n) {
-				(*neurons)[MAX_NEURONS_PER_LAYER + n] 
+				neurons[halfSize + n] 
 					= calculateValue(n, l, neurons) + neuronBiasAt(n, l); // Save to second half
 			}
-			std::copy(neurons->begin() + MAX_NEURONS_PER_LAYER,
-					  neurons->begin() + MAX_NEURONS_PER_LAYER + m_layerSizes[l],
-					  neurons->begin());
+			std::copy(neurons.begin() + halfSize,
+					  neurons.begin() + halfSize + m_layerSizes[l],
+					  neurons.begin());
 		}
 	}
 
-	inline const T calculateValue(uint neuron, uint layer, NeuronsArray* const neurons) const {
+	inline const T calculateValue(uint neuron, uint layer, const NeuronBuffer<T>& neurons) const {
 		assert(layer >= 1);
 		T value = 0;
 		for (uint n = 0; n < m_layerSizes[layer - 1]; ++n) {
-			value += (*neurons)[n] * weightAt(n, neuron, layer); // Read from first half
+			value += neurons[n] * weightAt(n, neuron, layer); // Read from first half
 		}
 		return value;
 	}
@@ -477,7 +489,7 @@ private:
 		std::cout << '\n';
 	}
 
-	inline NNPPStackVector<T> getOutputs(const NeuronsArray& neurons) const {
+	inline NNPPStackVector<T> getOutputs(const NeuronBuffer<T>& neurons) const {
 		NNPPStackVector<T> out;
 		for (uint i = 0; i < m_layerSizes.back(); ++i) {
 			out[i] = neurons[i];
@@ -631,9 +643,9 @@ public:
 		return *this;
 	}
 
-	inline NNPPStackVector<T> feedAt(uint index, const NNPPStackVector<T>& input) const {
+	inline NNPPStackVector<T> feedAt(uint index, const NNPPStackVector<T>& input, NeuronBuffer<T>& neuronBuffer) const {
 		assert(index < m_networks.size());
-		return m_networks[index].feed(input);
+		return m_networks[index].feed(input, neuronBuffer);
 	}
 
 	inline const NeuralNetwork<T>& getConstRefAt(uint index) const {
@@ -1024,21 +1036,31 @@ template <typename T> class NNPPTrainer {
 public:
 	NNPPTrainer() = delete;
 	NNPPTrainer(uint sessions, uint threads, NNPopulation<T>* const population) :
-		m_sessions(sessions),
-		m_threads(threads),
-		m_totalSessionsCompleted(0),
-		m_trainee(population) { }
+			m_sessions(sessions),
+			m_threads(threads),
+			m_totalSessionsCompleted(0),
+			m_trainee(population) {
+		assert(population);
+		for (uint i = 0; i < m_threads; ++i) {
+			m_perThreadNeuronBuffers.push_back(allocNeuronBuffer<T>());
+		}
+	}
 
 	virtual ~NNPPTrainer() { }
 
 	void run(bool verbose) {
+		run(verbose, true);
+	}
+
+	void run(bool verbose, bool autoSave) {
 		m_totalSessionsCompleted = 0;
 		uint sessionsCompleted = 0;
 		std::vector<std::thread> workers;
 		std::atomic<uint> sessionsCounter = 0;
-		auto workFunc = [&](uint sessionsToRun) {
+
+		auto workFunc = [this, verbose, &sessionsCounter](uint sessionsToRun, NeuronBuffer<T>* threadLocalNeuronBuffer) {
 			while (sessionsCounter++ < sessionsToRun) {
-				onSessionComplete(runSession());
+				onSessionComplete(runSession(*threadLocalNeuronBuffer));
 				if (verbose) {
 					std::cout << "\rCompleted: " << m_totalSessionsCompleted << " out of: " << m_sessions;
 					std::cout.flush();
@@ -1052,7 +1074,7 @@ public:
 			sessionsCounter = 0;
 
 			for (uint i = 0; i < threadsToUse; ++i) {
-				workers.emplace_back(workFunc, sessionsToRun);
+				workers.emplace_back(workFunc, sessionsToRun, &m_perThreadNeuronBuffers[i]);
 			}
 
 			while (!workers.empty()) {
@@ -1062,7 +1084,9 @@ public:
 
 			if (shouldEvolve()) {
 				evolve();
-				save();
+				if (autoSave) {
+					save();
+				}
 			}
 
 			sessionsCompleted += sessionsToRun;
@@ -1070,7 +1094,10 @@ public:
 		if (verbose) {
 			std::cout << '\n';
 		}
-		save();
+
+		if (autoSave) {
+			save();
+		}
 	}
 
 	inline void save() const {
@@ -1119,9 +1146,9 @@ public:
 	}
 
 protected:
-	NNPopulation<T>* m_trainee;
+	NNPopulation<T>* const m_trainee;
 
-	virtual std::vector<NNPPTrainingUpdate<T>> runSession() = 0;
+	virtual std::vector<NNPPTrainingUpdate<T>> runSession(NeuronBuffer<T>& threadLocalNeuronBuffer) = 0;
 	virtual uint sessionsTillEvolution() const = 0;
 	virtual float getAvgScoreImportance() const { return 0.0f; }
 
@@ -1139,6 +1166,7 @@ private:
 	uint m_threads;
 	uint m_totalSessionsCompleted;
 	std::mutex m_onSessionCompleteMutex;
+	std::vector<NeuronBuffer<T>> m_perThreadNeuronBuffers;
 
 	NNAi<T> createEvolvedNNAi(uint index, std::uniform_int_distribution<uint>* const dist,
 		std::random_device* const dev, float minFitness, float maxFitness, float fitnessTarget, const EvolutionInfo& evolutionInfo) const {
@@ -1228,7 +1256,7 @@ public:
 		m_tests(tests) { }
 
 protected:
-	std::vector<NNPPTrainingUpdate<T>> runSession() {
+	std::vector<NNPPTrainingUpdate<T>> runSession(NeuronBuffer<T>& threadLocalNeuronBuffer) override {
 		std::vector<NNPPTrainingUpdate<T>> updates;
 		for (uint i = 0; i < NNPPTrainer<T>::m_trainee->getPopulationSize(); ++i) {
 			NNAi<T>* nnai = NNPPTrainer<T>::m_trainee->getNNAiPtrAt(i);
@@ -1238,7 +1266,7 @@ protected:
 			}
 			float deltaScore = 0.0f;
 			for (const auto& [input, exp, indx] : m_tests) {
-				NNPPStackVector<T> out = nnai->feedAt(indx, input);
+				NNPPStackVector<T> out = nnai->feedAt(indx, input, threadLocalNeuronBuffer);
 				assert(out.size() == exp.size());
 				for (uint o = 0; o < exp.size(); ++o) {
 					deltaScore += -std::abs(exp[o] - out[o]);
@@ -1250,7 +1278,7 @@ protected:
 		return updates;
 	}
 
-	uint sessionsTillEvolution() const {
+	uint sessionsTillEvolution() const override {
 		assert(NNPPTrainer<T>::m_trainee->getSessionsTrainedThisGen() <= 1);
 		return NNPPTrainer<T>::m_trainee->getSessionsTrainedThisGen() - 1;
 	}

@@ -27,6 +27,7 @@ int main() {
 	tests.emplace_back(input3, exp3, 0);
 
 	float lastbest = 1.0f;
+	NeuronBuffer<float> neuronBuffer = allocNeuronBuffer<float>();
 	std::cout << "Starting training test" << '\n';
 	for (uint i = 0; i < SESSIONS; ++i) {
 		SimpleTrainer<float> trainer(1, 4, &nnp, tests);
@@ -51,7 +52,7 @@ int main() {
 	best.printLayerSizes();
 	std::cout << "Outputs after training: " << '\n';
 	for (const auto& t : tests) {
-		NNPPStackVector<float> out = best.feedAt(t.aiIndex, t.input);
+		NNPPStackVector<float> out = best.feedAt(t.aiIndex, t.input, neuronBuffer);
 		std::cout << "Input: ";
 		for (float i : t.input) {
 			std::cout << i << ' ';

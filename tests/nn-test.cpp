@@ -7,6 +7,8 @@ int main() {
 		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 10 };
 	NeuralNetwork<float> nn(layers);
 
+	auto neuronBuffer = allocNeuronBuffer<float>();
+
 	std::cout << "NN has data size: " << nn.getDataSize() << '\n';
 	std::cout << "Initiating data to 1.0f" << '\n';
 	nn.initDataVal(1.0f);
@@ -14,7 +16,7 @@ int main() {
 	
 	NNPPStackVector<float> input = { 1.0f, 1.0f };
 	std::cout << "Fedding input... " << '\n';
-	auto out = nn.feed(input);
+	auto out = nn.feed(input, neuronBuffer);
 	for (float o : out) {
 		assert(o == 86400000.0f); 
 	}
@@ -27,7 +29,7 @@ int main() {
 
 	std::cout << "Rerunning input test: " << '\n';
 	std::cout << "Fedding input... " << '\n';
-	out = nn.feed(input);
+	out = nn.feed(input, neuronBuffer);
 	for (float o : out) {
 		assert(o == 86400000.0f); 
 	}

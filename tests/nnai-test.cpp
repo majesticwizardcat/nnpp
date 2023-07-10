@@ -3,7 +3,8 @@
 int main() {
 	std::cout << "Starting NNAi test" << '\n';
 	std::vector<std::vector<uint>> layers = { { 1, 2, 1 }, { 2, 3, 3 }, { 5, 2, 3, 1 } };
-	NNAi<float> nnai(layers);
+	NNAi<float> nnai(0, layers);
+	auto neuronBuffer = allocNeuronBuffer<float>();
 
 	nnai.initRandomUniform(0.0f, 1.0f);
 	nnai.initVal(1.0f);
@@ -15,19 +16,19 @@ int main() {
 	NNPPStackVector<float> input2 = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 	
 	std::cout << "Testing feeding..." << '\n';
-	out = nnai.feedAt(0, input0);
+	out = nnai.feedAt(0, input0, neuronBuffer);
 
 	for (float o : out) {
 		assert(o == 2.0f);
 	}
 
-	out = nnai.feedAt(1, input1);
+	out = nnai.feedAt(1, input1, neuronBuffer);
 
 	for (float o : out) {
 		assert(o == 6.0f);
 	}
 
-	out = nnai.feedAt(2, input2);
+	out = nnai.feedAt(2, input2, neuronBuffer);
 
 	for (float o : out) {
 		assert(o == 30.0f);
@@ -37,19 +38,19 @@ int main() {
 	assert(nnai.loadFromFile("nnai-test.nnpp"));
 
 	std::cout << "Retesting feeding after save/load..." << '\n';
-	out = nnai.feedAt(0, input0);
+	out = nnai.feedAt(0, input0, neuronBuffer);
 
 	for (float o : out) {
 		assert(o == 2.0f);
 	}
 
-	out = nnai.feedAt(1, input1);
+	out = nnai.feedAt(1, input1, neuronBuffer);
 
 	for (float o : out) {
 		assert(o == 6.0f);
 	}
 
-	out = nnai.feedAt(2, input2);
+	out = nnai.feedAt(2, input2, neuronBuffer);
 
 	for (float o : out) {
 		assert(o == 30.0f);
