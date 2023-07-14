@@ -1112,6 +1112,7 @@ public:
 
 		EvolutionInfo<T> evolutionInfo = m_defaultEvolInfo;
 		setEvolutionInfo(evolutionInfo);
+		assert(evolutionInfo.minMutationValue <= evolutionInfo.maxMutationValue);
 
 		std::vector<uint> replaced;
 		for (uint i = 0; i < m_trainee->getPopulationSize(); ++i) {
