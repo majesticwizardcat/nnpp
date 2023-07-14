@@ -10,8 +10,12 @@ int main() {
 
 	const float minValue = -10.0f;
 	const float maxValue = 10.0f;
+	EvolutionInfo<float> defaultEvolInfo = getDefaultEvolutionInfoFloat();
+	defaultEvolInfo.minMutationValue = minValue;
+	defaultEvolInfo.maxLayersMutation = maxValue;
+
 	std::vector<std::vector<uint>> layers = { { 4, 300, 200, 350, 500, 300, 100, 1 } };
-	NNPopulation<float> nnp("test", 300, layers, minValue, maxValue);
+	NNPopulation<float> nnp("test", 300, layers);
 	nnp.createRandom(minValue, maxValue);
 	NNPPStackVector<float> input0 = { 0.0f, 0.0f, 0.0f, 0.0f };
 	NNPPStackVector<float> input1 = { 1.0f, 0.0f, 1.0f, 1.0f };
@@ -30,7 +34,7 @@ int main() {
 
 	std::cout << "Starting perf test" << '\n';
 	auto start = std::chrono::high_resolution_clock::now();
-	SimpleTrainer<float> trainer(SESSIONS, 1, &nnp, tests);
+	SimpleTrainer<float> trainer(SESSIONS, 1, &nnp, tests, defaultEvolInfo);
 	trainer.run(false, false);
 	auto end = std::chrono::high_resolution_clock::now();
 

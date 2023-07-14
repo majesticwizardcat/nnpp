@@ -7,7 +7,7 @@
 class TestTrainer : public NNPPTrainer<float> {
 public:
 	TestTrainer(uint sessions, uint threads, NNPopulation<float>* const population)
-		: NNPPTrainer<float>(sessions, threads, population) { }
+		: NNPPTrainer<float>(sessions, threads, population, getDefaultEvolutionInfoFloat()) { }
 
 	inline uint getSessionsFinished() const {
 		return m_sessionsFinished;
@@ -40,7 +40,7 @@ int main() {
 	std::cout << "Starting training test.." << '\n';
 	std::chrono::time_point start = std::chrono::high_resolution_clock::now();
 	std::vector<std::vector<uint>> layers = {{ 2, 3, 1 }};
-	NNPopulation<float> population("trainer-test", 100, layers, 0.0f, 1.0f);
+	NNPopulation<float> population("trainer-test", 100, layers);
 	population.createRandom(0.0f, 1.0f);
 	TestTrainer trainer(1053, 7, &population);
 	trainer.run(true);

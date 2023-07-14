@@ -8,8 +8,12 @@ int main() {
 	std::cout << "Running test Main test..." << '\n';
 	const float minValue = -10.0f;
 	const float maxValue = 10.0f;
+	EvolutionInfo<float> defaultEvolInfo = getDefaultEvolutionInfoFloat();
+	defaultEvolInfo.minMutationValue = minValue;
+	defaultEvolInfo.maxLayersMutation = maxValue;
+
 	std::vector<std::vector<uint>> layers = { { 4, 30, 20, 35, 50, 30, 10, 1 } };
-	NNPopulation<float> nnp("test", 300, layers, minValue, maxValue);
+	NNPopulation<float> nnp("test", 300, layers);
 	nnp.createRandom(minValue, maxValue);
 	NNPPStackVector<float> input0 = { 0.0f, 0.0f, 0.0f, 0.0f };
 	NNPPStackVector<float> input1 = { 1.0f, 0.0f, 1.0f, 1.0f };
@@ -30,7 +34,7 @@ int main() {
 	float lastbest = 1.0f;
 	std::cout << "Starting training test" << '\n';
 	for (uint i = 0; i < SESSIONS; ++i) {
-		SimpleTrainer<float> trainer(1, 4, &nnp, tests);
+		SimpleTrainer<float> trainer(1, 4, &nnp, tests, defaultEvolInfo);
 		if (lastbest != nnp.getMaxScoreNNAi().getScore()) {
 			std::cout << "Best score: " << nnp.getMaxScoreNNAi().getScore() << '\n';
 			lastbest = nnp.getMaxScoreNNAi().getScore();
