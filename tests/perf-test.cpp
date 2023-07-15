@@ -14,7 +14,8 @@ int main() {
 	defaultEvolInfo.minMutationValue = minValue;
 	defaultEvolInfo.maxLayersMutation = maxValue;
 
-	std::vector<std::vector<uint>> layers = { { 4, 300, 200, 350, 500, 300, 100, 1 } };
+	std::cout << "Creating neural net" << '\n';
+	std::vector<std::vector<uint>> layers = { { 4, 300, 200, 350, 1000, 1000, 500, 300, 100, 1 } };
 	NNPopulation<float> nnp("test", 300, layers);
 	nnp.createRandom(minValue, maxValue);
 	NNPPStackVector<float> input0 = { 0.0f, 0.0f, 0.0f, 0.0f };

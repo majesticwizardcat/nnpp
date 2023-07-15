@@ -119,7 +119,6 @@ public:
 
 	NeuralNetwork(const std::vector<uint>& layers)
 		: m_layerSizes(layers)
-		, m_dataSize(0)
 		, m_data(nullptr)
 		, m_neuronBiases(nullptr) {
 		if (layers.size() < 3) {
@@ -129,21 +128,21 @@ public:
 		}
 		assert(layers[0] <= MAX_INPUT_OUTPUT_NEURONS);
 		assert(layers.back() <= MAX_INPUT_OUTPUT_NEURONS);
-		m_dataSize = calculateDataSize();
-		m_data = std::make_unique<T[]>(m_dataSize);
-		m_neuronBiases = std::make_unique<T[]>(getNeuronsNum());
+		initInternal();
+		m_data = std::make_unique<T[]>(getDataSize());
+		m_neuronBiases = std::make_unique<T[]>(getNumOfTotalNeurons());
 	}
 
 	NeuralNetwork(NeuralNetwork&& other)
 		: m_layerSizes(std::move(other.m_layerSizes))
-		, m_dataSize(std::move(other.m_dataSize))
+		, m_dataSizePerLayer(std::move(other.m_dataSizePerLayer))
 		, m_data(std::move(other.m_data))
-		, m_neuronBiases(std::move(other.m_neuronBiases)) {
+		, m_neuronBiases(std::move(other.m_neuronBiases))
+		, m_numOfNeuronsPerLayer(std::move(other.m_numOfNeuronsPerLayer)) {
 	}
 
 	NeuralNetwork(const std::string& location)
-		: m_dataSize(0)
-		, m_data(nullptr)
+		: m_data(nullptr)
 		, m_neuronBiases(nullptr) {
 		if (!loadFromFile(location)) {
 			std::cout << "Could not load from file" << '\n';
@@ -152,8 +151,7 @@ public:
 	}
 
 	NeuralNetwork(std::ifstream* const stream) 
-		: m_dataSize(0)
-		, m_data(nullptr)
+		: m_data(nullptr)
 		, m_neuronBiases(nullptr) {
 		if (!readFromStream(stream)) {
 			std::cout << "Could not read from stream" << '\n';
@@ -201,9 +199,9 @@ public:
 			minLayerSizes[i] = std::min(m_layerSizes[i], std::min(n0.m_layerSizes[i], n1.m_layerSizes[i]));
 		}
 
-		m_dataSize = calculateDataSize();
-		m_data = std::make_unique<T[]>(m_dataSize);
-		m_neuronBiases = std::make_unique<T[]>(getNeuronsNum());
+		initInternal();
+		m_data = std::make_unique<T[]>(getDataSize());
+		m_neuronBiases = std::make_unique<T[]>(getNumOfTotalNeurons());
 
 		for (uint tl = 1; tl < m_layerSizes.size(); ++tl) {
 			for (uint tn = 0; tn < m_layerSizes[tl]; ++tn) {
@@ -235,48 +233,54 @@ public:
 	}
 
 	void initDataVal(const T& val) {
-		for (ulong i = 0; i < m_dataSize; ++i) {
+		for (ulong i = 0; i < getDataSize(); ++i) {
 			m_data[i] = val;
 		}
 		initBiasesVal(val);
 	}
 
 	void initBiasesVal(const T& val) {
-		uint biasesNum = getNeuronsNum();
+		uint biasesNum = getNumOfTotalNeurons();
 		for (uint i = 0; i < biasesNum; ++i) {
 			m_neuronBiases[i] = val;
 		}
 	}
 
 	void initData(const std::vector<T>& data, const std::vector<T>& biases) {
-		assert(data.size() == m_dataSize);
-		assert(biases.size() == getNeuronsNum());
-		for (ulong i = 0; i < m_dataSize; ++i) {
+		assert(data.size() == getDataSize());
+		assert(biases.size() == getNumOfTotalNeurons());
+		for (ulong i = 0; i < getDataSize(); ++i) {
 			m_data[i] = data[i];
 		}
 
-		uint biasesNum = getNeuronsNum();
+		uint biasesNum = getNumOfTotalNeurons();
 		for (uint i = 0; i < biasesNum; ++i) {
 			m_neuronBiases[i] = biases[i];
 		}
 	}
 
-	inline ulong getDataSize() const {
-		return m_dataSize;
+	inline const ulong getDataSize() const {
+		return m_dataSizePerLayer.back();
 	}
 
-	inline uint getNeuronsNum() const {
-		return std::accumulate(m_layerSizes.begin(), m_layerSizes.end(), 0);
+	inline const ulong getDataSizeForLayer(ulong layer) const {
+		assert(layer < m_dataSizePerLayer.size());
+		return m_dataSizePerLayer[layer];
+	}
+
+	inline uint getNumOfTotalNeurons() const {
+		assert(m_numOfNeuronsPerLayer.back() == std::accumulate(m_layerSizes.begin(), m_layerSizes.end(), 0));
+		return m_numOfNeuronsPerLayer.back();
 	}
 
 	void randomizeDataUniform(const T& min, const T& max) {
 		std::uniform_real_distribution<T> dist(min, max);
 		std::random_device dev;
-		for (ulong i = 0; i < m_dataSize; ++i) {
+		for (ulong i = 0; i < getDataSize(); ++i) {
 			m_data[i] = dist(dev);
 		}
 
-		uint biasesNum = getNeuronsNum();
+		uint biasesNum = getNumOfTotalNeurons();
 		for (uint i = 0; i < biasesNum; ++i) {
 			m_neuronBiases[i] = dist(dev);
 		}
@@ -302,15 +306,15 @@ public:
 			}
 		}
 
-		if (!saveFile->write(reinterpret_cast<const char*>(m_data.get()), sizeof(T) * m_dataSize)
-			|| !saveFile->write(reinterpret_cast<const char*>(m_neuronBiases.get()), sizeof(T) * getNeuronsNum())) {
+		if (!saveFile->write(reinterpret_cast<const char*>(m_data.get()), sizeof(T) * getDataSize())
+			|| !saveFile->write(reinterpret_cast<const char*>(m_neuronBiases.get()), sizeof(T) * getNumOfTotalNeurons())) {
 			return false;
 		}
 		return true;
 	}
 
 	bool saveToFile(const std::string& fileName) const {
-		assert(m_data && m_dataSize > 0);
+		assert(m_data && getDataSize() > 0);
 		std::ofstream saveFile(fileName, std::ios::out | std::ios::binary);
 		return saveToStream(&saveFile);
 	}
@@ -343,10 +347,11 @@ public:
 	}
 
 	void clearAll() {
-		m_dataSize = 0;
 		m_layerSizes.clear();
 		m_data.release();
 		m_neuronBiases.release();
+		m_dataSizePerLayer.clear();
+		m_numOfNeuronsPerLayer.clear();
 	}
 
 	NNPPStackVector<T> feed(const NNPPStackVector<T>& input, NeuronBuffer<T>& neuronBuffer) const {
@@ -356,12 +361,12 @@ public:
 	}
 
 	bool operator==(const NeuralNetwork& other) const {
-		if (m_dataSize != other.m_dataSize
+		if (getDataSize() != other.getDataSize()
 			|| m_layerSizes != other.m_layerSizes) {
 			return false;
 		}
 
-		for (ulong i = 0; i < m_dataSize; ++i) {
+		for (ulong i = 0; i < getDataSize(); ++i) {
 			if (m_data[i] != other.m_data[i]) {
 				return false;
 			}
@@ -386,10 +391,11 @@ public:
 	}
 
 private:
-	ulong m_dataSize;
 	std::vector<uint> m_layerSizes;
 	std::unique_ptr<T[]> m_data;
 	std::unique_ptr<T[]> m_neuronBiases;
+	std::vector<ulong> m_dataSizePerLayer;
+	std::vector<uint> m_numOfNeuronsPerLayer;
 
 	bool saveHeader(std::ofstream* saveFile) const {
 		return saveFile->write(reinterpret_cast<const char*>(HEADER_STR_NN.data()), sizeof(HEADER_STR_NN.size()))
@@ -419,34 +425,38 @@ private:
 			m_layerSizes.push_back(cur);
 		}
 
-		uint biases = getNeuronsNum();
-		m_dataSize = calculateDataSize();
-		m_data = std::make_unique<T[]>(m_dataSize);
+		initInternal();
+		uint biases = getNumOfTotalNeurons();
+		m_data = std::make_unique<T[]>(getDataSize());
 		m_neuronBiases = std::make_unique<T[]>(biases);
-		if (!file->read(reinterpret_cast<char*>(m_data.get()), sizeof(T) * m_dataSize)
+		if (!file->read(reinterpret_cast<char*>(m_data.get()), sizeof(T) * getDataSize())
 			|| !file->read(reinterpret_cast<char*>(m_neuronBiases.get()), sizeof(T) * biases)) {
 			return false;
 		}
 		return true;
 	}
 
+	inline void initInternal() {
+		calculateDataSizes();
+		calculateNeuronSizes();
+	}
 
 	inline uint weightIndex(uint fromNeuron, uint toNeuron, uint toLayer) const {
 		assert(toLayer > 0);
 		assert(toLayer < m_layerSizes.size());
-		assert(calculateDataSize(toLayer)
+		assert(getDataSizeForLayer(toLayer)
 			+ fromNeuron * m_layerSizes[toLayer]
-			+ toNeuron < m_dataSize);
-		return calculateDataSize(toLayer)
+			+ toNeuron < getDataSize());
+		return getDataSizeForLayer(toLayer)
 			+ fromNeuron * m_layerSizes[toLayer]
 			+ toNeuron;
 	}
 
 	inline uint neuronBiasIndex(uint neuron, uint layer) const {
 		assert(layer >= 0);
-		assert(layer < m_layerSizes.size());
-		assert(std::accumulate(m_layerSizes.begin(), m_layerSizes.begin() + layer, neuron) < getNeuronsNum());
-		return std::accumulate(m_layerSizes.begin(), m_layerSizes.begin() + layer, neuron);
+		assert(layer < m_numOfNeuronsPerLayer.size());
+		assert(m_numOfNeuronsPerLayer[layer] + neuron < getNumOfTotalNeurons());
+		return m_numOfNeuronsPerLayer[layer] + neuron;
 	}
 
 	inline const T& weightAt(uint fromNeuron, uint toNeuron, uint toLayer) const {
@@ -466,7 +476,6 @@ private:
 	}
 
 	inline void latchInputs(const NNPPStackVector<T>& inputs, NeuronBuffer<T>& neurons) const {
-		assert(m_layerSizes.size() >= 3);
 		assert(inputs.size() == *m_layerSizes.begin());
 		assert(neurons.size() >= inputs.size() * 2);
 		for (uint i = 0; i < inputs.size(); ++i) {
@@ -480,9 +489,9 @@ private:
 		for (uint l = 1; l < m_layerSizes.size(); ++l) {
 			assert(neurons.size() >= m_layerSizes[l] * 2);
 			for (uint n = 0; n < m_layerSizes[l]; ++n) {
-				neurons[halfSize + n] 
-					= calculateValue(n, l, neurons) + neuronBiasAt(n, l); // Save to second half
+				neurons[halfSize + n] = calculateValue(n, l, neurons) + neuronBiasAt(n, l); // Save to second half
 			}
+
 			std::copy(neurons.begin() + halfSize,
 					  neurons.begin() + halfSize + m_layerSizes[l],
 					  neurons.begin());
@@ -514,17 +523,30 @@ private:
 		return out;
 	}
 
-	inline ulong calculateDataSize() const {
-		return calculateDataSize(m_layerSizes.size());
+	inline void calculateDataSizes() {
+		assert(m_layerSizes.size() > 1);
+		auto calculateDataSizeForLayer = [this](ulong layer) {
+			assert(layer <= m_layerSizes.size());
+			ulong size = 0;
+			for (ulong i = 1; i < layer; ++i) {
+				size += m_layerSizes[i - 1] * m_layerSizes[i];
+			}
+			return size;
+		};
+
+		m_dataSizePerLayer.resize(m_layerSizes.size() + 1);
+		for (ulong i = 0; i <= m_layerSizes.size(); ++i) {
+			m_dataSizePerLayer[i] = calculateDataSizeForLayer(i);
+		}
 	}
 
-	inline ulong calculateDataSize(ulong layer) const {
-		assert(layer <= m_layerSizes.size());
-		ulong size = 0;
-		for (ulong i = 1; i < layer; ++i) {
-			size += m_layerSizes[i - 1] * m_layerSizes[i];
+	inline void calculateNeuronSizes() {
+		m_numOfNeuronsPerLayer.resize(m_layerSizes.size() + 1);
+		for (uint i = 0; i < m_layerSizes.size(); ++i) {
+			m_numOfNeuronsPerLayer[i] = std::accumulate(m_layerSizes.begin(), m_layerSizes.begin() + i, 0);
 		}
-		return size;
+		m_numOfNeuronsPerLayer[m_layerSizes.size()] = std::accumulate(m_layerSizes.begin(), m_layerSizes.end(), 0);
+		assert(getNumOfTotalNeurons() == std::accumulate(m_layerSizes.begin(), m_layerSizes.end(), 0));
 	}
 };
 
