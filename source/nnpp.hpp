@@ -488,23 +488,17 @@ private:
 		const ulong halfSize = neurons.size() / 2;
 		for (uint l = 1; l < m_layerSizes.size(); ++l) {
 			assert(neurons.size() >= m_layerSizes[l] * 2);
-			for (uint n = 0; n < m_layerSizes[l]; ++n) {
-				neurons[halfSize + n] = calculateValue(n, l, neurons) + neuronBiasAt(n, l); // Save to second half
+			std::fill_n(neurons.begin() + halfSize, m_layerSizes[l], 0);
+			for (uint fromNeuron = 0; fromNeuron < m_layerSizes[l - 1]; ++fromNeuron) {
+				for (uint toNeuron = 0; toNeuron < m_layerSizes[l]; ++toNeuron) {
+					 neurons[halfSize + toNeuron] += neurons[fromNeuron] * weightAt(fromNeuron, toNeuron, l) + neuronBiasAt(toNeuron, l);
+				}
 			}
 
 			std::copy(neurons.begin() + halfSize,
 					  neurons.begin() + halfSize + m_layerSizes[l],
 					  neurons.begin());
 		}
-	}
-
-	inline const T calculateValue(uint neuron, uint layer, const NeuronBuffer<T>& neurons) const {
-		assert(layer >= 1);
-		T value = 0;
-		for (uint n = 0; n < m_layerSizes[layer - 1]; ++n) {
-			value += neurons[n] * weightAt(n, neuron, layer); // Read from first half
-		}
-		return value;
 	}
 
 	inline void printWeightsAt(uint neuron, uint layer) const {
