@@ -11,6 +11,7 @@
 #include <utility>
 #include <mutex>
 #include <array>
+#include <cassert>
 
 typedef unsigned int uint;
 typedef unsigned long long ulong;
