@@ -40,6 +40,9 @@ inline float normalize(float value, float min, float max) {
 }
 
 template <typename T, ulong N> class StackVector {
+	static_assert(std::is_trivially_constructible_v<T>);
+	static_assert(std::is_trivially_destructible_v<T>);
+
 public:
 	StackVector()
 		: m_size(0) { }
