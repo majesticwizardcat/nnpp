@@ -1,0 +1,26 @@
+{
+    "configurations": [
+        {
+            "name": "Default",
+
+			"cStandard": "c17",
+			"cppStandard": "c++23",
+
+           	"configurationProvider": "ms-vscode.cpptools",
+			"includePath":
+			[
+				"${workspaceRoot}/source/**",
+				"${workspaceRoot}/standard-sauce/**",
+				"${workspaceRoot}/pcg-cpp/include/"
+			],
+			"browse":
+			{
+				"path":
+				[
+					"${workspaceRoot}"
+				]
+			}
+        }
+    ],
+    "version": 4
+}

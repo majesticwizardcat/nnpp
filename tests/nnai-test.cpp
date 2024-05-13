@@ -1,19 +1,22 @@
 #include "nnpp.hpp"
 
 int main() {
+#if NDEBUG
+	std::cout << "Cannot run this test on Release" << '\n';
+#else
 	std::cout << "Starting NNAi test" << '\n';
 	std::vector<std::vector<uint>> layers = { { 1, 2, 1 }, { 2, 3, 3 }, { 5, 2, 3, 1 } };
-	NNAi<float> nnai(0, layers);
-	auto neuronBuffer = allocNeuronBuffer<float>();
+	nnpp::NNAi<float> nnai(0, layers);
+	auto neuronBuffer = nnpp::allocNeuronBuffer<float>();
 
 	nnai.initRandomUniform(0.0f, 1.0f);
 	nnai.initVal(1.0f);
 	nnai.initBiasesVal(0.0f);
 
-	NNPPStackVector<float> out;
-	NNPPStackVector<float> input0 = { 1.0f };
-	NNPPStackVector<float> input1 = { 1.0f, 1.0f };
-	NNPPStackVector<float> input2 = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+	nnpp::NNPPStackVector<float> out;
+	nnpp::NNPPStackVector<float> input0 = { 1.0f };
+	nnpp::NNPPStackVector<float> input1 = { 1.0f, 1.0f };
+	nnpp::NNPPStackVector<float> input2 = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 	
 	std::cout << "Testing feeding..." << '\n';
 	out = nnai.feedAt(0, input0, neuronBuffer);
@@ -57,4 +60,5 @@ int main() {
 	}
 
 	std::cout << "Done!" << '\n';
+#endif
 }

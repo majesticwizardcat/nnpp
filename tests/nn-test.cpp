@@ -1,20 +1,23 @@
 #include "nnpp.hpp"
 
 int main() {
+#if NDEBUG
+	std::cout << "Cannot run this test on Release" << '\n';
+#else
 	std::cout << "Running NN test... " << '\n';
 	std::vector<uint> layers = { 2, 3, 2, 1, 2, 3, 1, 4,
 		3, 2, 1, 1, 1, 1, 10, 100, 2, 1, 1, 1, 1, 1, 5, 5, 1,
 		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 10 };
-	NeuralNetwork<float> nn(layers);
+	nnpp::NeuralNetwork<float> nn(layers);
 
-	auto neuronBuffer = allocNeuronBuffer<float>();
+	auto neuronBuffer = nnpp::allocNeuronBuffer<float>();
 
 	std::cout << "NN has data size: " << nn.getDataSize() << '\n';
 	std::cout << "Initiating data to 1.0f" << '\n';
 	nn.initDataVal(1.0f);
 	nn.initBiasesVal(0.0f);
 	
-	NNPPStackVector<float> input = { 1.0f, 1.0f };
+	nnpp::NNPPStackVector<float> input = { 1.0f, 1.0f };
 	std::cout << "Fedding input... " << '\n';
 	auto out = nn.feed(input, neuronBuffer);
 	for (float o : out) {
@@ -23,7 +26,7 @@ int main() {
 	std::cout << "Passed!" << '\n';
 
 	std::cout << "Saving to disk..." << '\n';
-	assert(nn.saveToFile("nn-test.nnpp"));
+	assert(nn.saveToDisk("nn-test.nnpp"));
 	std::cout << "Loading from disk..." << '\n';
 	assert(nn.loadFromFile("nn-test.nnpp"));
 
@@ -35,4 +38,5 @@ int main() {
 	}
 	std::cout << "Passed!" << '\n';
 	std::cout << "Done!" << '\n';
+#endif
 }

@@ -4,18 +4,18 @@
 #include <thread>
 #include <chrono>
 
-class TestTrainer : public NNPPTrainer<float> {
+class TestTrainer : public nnpp::NNPPTrainer<float> {
 public:
-	TestTrainer(uint sessions, uint threads, NNPopulation<float>* const population)
-		: NNPPTrainer<float>(sessions, threads, population, getDefaultEvolutionInfoFloat()) { }
+	TestTrainer(uint sessions, uint threads, nnpp::NNPopulation<float>& population)
+			: NNPPTrainer<float>(sessions, threads, population, nnpp::getDefaultEvolutionInfoFloat()) { }
 
 	inline uint getSessionsFinished() const {
 		return m_sessionsFinished;
 	}
 	
 protected:
-	std::vector<NNPPTrainingUpdate<float>> runSession(NeuronBuffer<float>& threadLocalNeuronBuffer) {
-		std::vector<NNPPTrainingUpdate<float>> results;
+	std::vector<nnpp::NNPPTrainingUpdate<float>> runSession(nnpp::NeuronBuffer<float>& /*threadLocalNeuronBuffer*/) {
+		std::vector<nnpp::NNPPTrainingUpdate<float>> results;
 		std::random_device dev;
 		std::uniform_int_distribution<uint> dist(1, 5000);
 		std::this_thread::sleep_for(std::chrono::milliseconds(dist(dev)));
@@ -24,8 +24,8 @@ protected:
 	}
 
 	uint sessionsTillEvolution() const {
-		assert(tillNextGen() >= m_trainee->getSessionsTrainedThisGen());
-		return tillNextGen() - m_trainee->getSessionsTrainedThisGen();
+		assert(tillNextGen() >= m_trainee.getSessionsTrainedThisGen());
+		return tillNextGen() - m_trainee.getSessionsTrainedThisGen();
 	}
 
 private:
@@ -40,9 +40,9 @@ int main() {
 	std::cout << "Starting training test.." << '\n';
 	std::chrono::time_point start = std::chrono::high_resolution_clock::now();
 	std::vector<std::vector<uint>> layers = {{ 2, 3, 1 }};
-	NNPopulation<float> population("trainer-test", 100, layers);
+	nnpp::NNPopulation<float> population("trainer-test", 100, layers);
 	population.createRandom(0.0f, 1.0f);
-	TestTrainer trainer(1053, 7, &population);
+	TestTrainer trainer(1053, 7, population);
 	trainer.run(true);
 	assert(population.getGenerartion() == 10);
 	assert(population.getSessionsTrained() == 1053);
