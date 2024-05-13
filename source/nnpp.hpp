@@ -258,7 +258,6 @@ public:
 
 		// Save data
 		const uint32_t layers = m_layerSizes.size();
-		std::cout << "Layers: ";
 		writer.write(layers);
 
 		for (const uint32_t l : m_layerSizes) {

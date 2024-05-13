@@ -15,6 +15,7 @@ int main() {
 	defaultEvolInfo.maxLayersMutation = maxValue;
 
 	std::cout << "Creating neural net" << '\n';
+	auto start = std::chrono::high_resolution_clock::now();
 	std::vector<std::vector<uint>> layers = { { 4, 300, 200, 350, 1000, 1000, 500, 300, 100, 1 } };
 	nnpp::NNPopulation<float> nnp("test", 300, layers);
 	nnp.createRandom(minValue, maxValue);
@@ -34,9 +35,10 @@ int main() {
 	tests.emplace_back(input3, exp3, 0);
 
 	std::cout << "Starting perf test" << '\n';
-	auto start = std::chrono::high_resolution_clock::now();
 	nnpp::SimpleTrainer<float> trainer(SESSIONS, 1, nnp, tests, defaultEvolInfo);
 	trainer.run(false, false);
+	nnp.saveToDisk();
+	nnp = nnpp::NNPopulation<float>("test");
 	auto end = std::chrono::high_resolution_clock::now();
 
 	std::chrono::duration<float> time = end - start;
