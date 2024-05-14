@@ -133,7 +133,8 @@ public:
 		std::uniform_real_distribution<float> realDist(0.0f, 1.0f);
 		std::uniform_real_distribution<T> mutationValueDist(evolutionInfo.minMutationValue, evolutionInfo.maxMutationValue);
 		std::uniform_int_distribution<uint> layerMutation(0, evolutionInfo.maxLayersMutation);
-		std::random_device dev;
+		pcg_extras::seed_seq_from<std::random_device> seed;
+		pcg32_fast dev(seed);
 
 		std::vector<uint32_t> minLayerSizes(n0.m_layerSizes.size());
 		m_layerSizes.resize(n0.m_layerSizes.size());
@@ -235,7 +236,8 @@ public:
 
 	inline constexpr void randomizeDataUniform(const T& min, const T& max) {
 		std::uniform_real_distribution<T> dist(min, max);
-		std::random_device dev;
+		pcg_extras::seed_seq_from<std::random_device> seed;
+		pcg32_fast dev(seed);
 		for (uint64_t i = 0; i < getDataSize(); ++i) {
 			m_data[i] = dist(dev);
 		}
@@ -985,7 +987,8 @@ public:
 
 	constexpr void evolve() {
 		std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-		std::random_device dev;
+		pcg_extras::seed_seq_from<std::random_device> seed;
+		pcg32_fast dev(seed);
 
 		const float minFitness = getFitnessForNNAi(m_trainee.getMinScoreNNAi());
 		const float maxFitness = getFitnessForNNAi(m_trainee.getMaxScoreNNAi());
@@ -1047,7 +1050,7 @@ private:
 	constexpr NNAi<T> createEvolvedNNAi(
 				  uint32_t index
 				, std::uniform_int_distribution<uint32_t>& dist
-				, std::random_device& dev
+				, pcg32_fast& dev
 				, const float minFitness
 				, const float maxFitness
 				, const float fitnessTarget
