@@ -910,8 +910,8 @@ template <typename T> struct NNPPTrainingUpdate {
 	float updateValue;
 	bool replaceValue;
 
-	NNPPTrainingUpdate<T>() = delete;
-	NNPPTrainingUpdate<T>(NNAi<T>& nnai, float updateValue, bool replaceValue)
+	NNPPTrainingUpdate() = delete;
+	constexpr NNPPTrainingUpdate(NNAi<T>& nnai, float updateValue, bool replaceValue)
 			: nnai(nnai)
 			, updateValue(updateValue)
 			, replaceValue(replaceValue) { }
