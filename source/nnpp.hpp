@@ -143,7 +143,7 @@ public:
 				const uint32_t extras = realDist(dev) < evolutionInfo.layerMutationChance ? layerMutation(dev) : 0;
 				m_layerSizes[i] = (n0.m_layerSizes[i] + n1.m_layerSizes[i]) / 2;
 				if (realDist(dev) < evolutionInfo.layerAdditionChance) {
-					m_layerSizes[i] += extras;
+					m_layerSizes[i] = std::min(MAX_NEURONS_PER_LAYER, m_layerSizes[i] + extras);
 				}
 				else if (m_layerSizes[i] > extras) {
 					m_layerSizes[i] -= extras;
@@ -425,7 +425,7 @@ private:
 
 	inline constexpr void propagate(NeuronBuffer<T>& neurons) const {
 		// half size is where the array for copy dest begins
-		const uint64_t halfSize = neurons.size() / 2;
+		const uint64_t halfSize = (neurons.size() >> 1); // size / 2
 		for (uint l = 1; l < m_layerSizes.size(); ++l) {
 			assert(neurons.size() >= m_layerSizes[l] * 2);
 			std::fill_n(neurons.begin() + halfSize, m_layerSizes[l], 0);
