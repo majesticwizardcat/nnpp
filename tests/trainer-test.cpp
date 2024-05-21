@@ -23,7 +23,7 @@ protected:
 		return results;
 	}
 
-	uint sessionsTillEvolution() const {
+	uint64_t sessionsTillEvolution() const {
 		assert(tillNextGen() >= m_trainee.getSessionsTrainedThisGen());
 		return tillNextGen() - m_trainee.getSessionsTrainedThisGen();
 	}

@@ -29,12 +29,12 @@ static constexpr const char* HEADER_STR_NNPP = "NNPP";
 static constexpr uint64_t MAX_INPUT_OUTPUT_NEURONS = 1024;
 static constexpr uint32_t MAX_NEURONS_PER_LAYER = 1 << 16;
 static constexpr float DEFAULT_WEIGHT_MUTATION_CHANCE = 0.05f;
-static constexpr uint32_t DEFAULT_MAX_LAYER_MUTATION = 5;
+static constexpr uint64_t DEFAULT_MAX_LAYER_MUTATION = 5;
 static constexpr float DEFAULT_LAYER_MUTATION_CHANCE = 0.3f;
 static constexpr float DEFAULT_LAYER_ADDITION_CHANCE = 0.5f;
 static constexpr float TARGET_DECREASE_RATE = 0.0005f;
 static constexpr float DEFAULT_CHILD_REGRESSION_PERCENTAGE = 0.95f;
-static constexpr uint32_t DEFUALT_MIN_TRAINING_SESSIONS_REQUIRED = 1;
+static constexpr uint64_t DEFUALT_MIN_TRAINING_SESSIONS_REQUIRED = 1;
 static constexpr float DEFAULT_MIN_MUTATION_VALUE_FLOAT = -1.0f;
 static constexpr float DEFAULT_MAX_MUTATION_VALUE_FLOAT = 1.0f;
 
@@ -49,8 +49,8 @@ template <typename T> struct EvolutionInfo {
 	float weightMutationChance;
 	float layerMutationChance;
 	float layerAdditionChance;
-	uint32_t maxLayersMutation;
-	uint32_t minTrainingSessionsRequired;
+	uint64_t maxLayersMutation;
+	uint64_t minTrainingSessionsRequired;
 };
 
 inline static constexpr EvolutionInfo<float> getDefaultEvolutionInfoFloat() {
@@ -312,7 +312,7 @@ public:
 		}
 
 		initializeNetworkData();
-		const uint32_t biases = getNumOfTotalNeurons();
+		const uint64_t biases = getNumOfTotalNeurons();
 		m_data = std::make_unique<T[]>(getDataSize());
 		m_neuronBiases = std::make_unique<T[]>(biases);
 
@@ -355,15 +355,15 @@ public:
 
 	inline void printLayerSizes() const {
 		std::cout << "{ ";
-		for (uint l : m_layerSizes) {
+		for (uint32_t l : m_layerSizes) {
 			std::cout << l << ' ';
 		}
 		std::cout << "}" << '\n';
 	}
 
 	inline void printData() const {
-		for (uint i = 1; i < m_layerSizes.size(); ++i) {
-			for (uint n = 0; n < m_layerSizes[i]; ++n) {
+		for (uint32_t i = 1; i < m_layerSizes.size(); ++i) {
+			for (uint32_t n = 0; n < m_layerSizes[i]; ++n) {
 				printWeightsAt(n, i);
 			}
 		}
@@ -426,7 +426,7 @@ private:
 	inline constexpr void propagate(NeuronBuffer<T>& neurons) const {
 		// half size is where the array for copy dest begins
 		const uint64_t halfSize = (neurons.size() >> 1); // size / 2
-		for (uint l = 1; l < m_layerSizes.size(); ++l) {
+		for (uint32_t l = 1; l < m_layerSizes.size(); ++l) {
 			assert(neurons.size() >= m_layerSizes[l] * 2);
 			std::fill_n(neurons.begin() + halfSize, m_layerSizes[l], 0);
 			for (uint fromNeuron = 0; fromNeuron < m_layerSizes[l - 1]; ++fromNeuron) {
@@ -441,9 +441,9 @@ private:
 		}
 	}
 
-	void printWeightsAt(uint neuron, uint layer) const {
+	void printWeightsAt(uint32_t neuron, uint32_t layer) const {
 		assert(layer >= 1);
-		for (uint n = 0; n < m_layerSizes[layer - 1]; ++n) {
+		for (uint32_t n = 0; n < m_layerSizes[layer - 1]; ++n) {
 			std::cout << weightAt(n, neuron, layer) << ' ';
 		}
 		std::cout << '\n';
@@ -825,19 +825,19 @@ public:
 		m_sessionsTrainedThisGen++;
 	}
 
-	inline constexpr uint32_t getGenerartion() const {
+	inline constexpr uint64_t getGenerartion() const {
 		return m_generation;
 	}
 	
-	inline constexpr uint32_t getSessionsTrained() const {
+	inline constexpr uint64_t getSessionsTrained() const {
 		return m_sessionsTrained;
 	}
 
-	inline constexpr uint32_t getSessionsTrainedThisGen() const {
+	inline constexpr uint64_t getSessionsTrainedThisGen() const {
 		return m_sessionsTrainedThisGen;
 	}
 
-	inline constexpr uint32_t getPopulationSize() const {
+	inline constexpr uint64_t getPopulationSize() const {
 		return m_population.size();
 	}
 
@@ -886,15 +886,15 @@ public:
 		return *std::max_element(m_population.begin(), m_population.end());
 	}
 
-	inline constexpr uint32_t assignNextID() {
+	inline constexpr uint64_t assignNextID() {
 		return m_nextID++;
 	}
 
 private:
 	std::vector<NNAi<T>> m_population;
-	uint32_t m_generation;
-	uint32_t m_sessionsTrained;
-	uint32_t m_sessionsTrainedThisGen;
+	uint64_t m_generation;
+	uint64_t m_sessionsTrained;
+	uint64_t m_sessionsTrainedThisGen;
 	std::string m_name;
 	uint64_t m_nextID;
 
@@ -921,7 +921,7 @@ template <typename T> class NNPPTrainer {
 public:
 	NNPPTrainer() = delete;
 
-	constexpr NNPPTrainer(const uint32_t sessions, const uint32_t threads, NNPopulation<T>& population, const EvolutionInfo<T>& defaultEvolInfo)
+	constexpr NNPPTrainer(const uint64_t sessions, const uint32_t threads, NNPopulation<T>& population, const EvolutionInfo<T>& defaultEvolInfo)
 			: m_trainee(population)
 			, m_sessions(sessions)
 			, m_threads(threads)
@@ -937,11 +937,11 @@ public:
 
 	void run(const bool verbose = true, const bool autoSave = true) {
 		m_totalSessionsCompleted = 0;
-		uint32_t sessionsCompleted = 0;
+		uint64_t sessionsCompleted = 0;
 		std::vector<std::thread> workers;
-		std::atomic<uint32_t> sessionsCounter = 0;
+		std::atomic<uint64_t> sessionsCounter = 0;
 
-		auto workFunc = [this, verbose, &sessionsCounter](const uint32_t sessionsToRun, NeuronBuffer<T>* threadLocalNeuronBuffer) {
+		auto workFunc = [this, verbose, &sessionsCounter](const uint64_t sessionsToRun, NeuronBuffer<T>* threadLocalNeuronBuffer) {
 			while (sessionsCounter++ < sessionsToRun) {
 				onSessionComplete(runSession(*threadLocalNeuronBuffer));
 
@@ -953,8 +953,8 @@ public:
 		};
 
 		while (sessionsCompleted < m_sessions) {
-			const uint32_t sessionsToRun = std::min(m_sessions - sessionsCompleted, sessionsTillEvolution());
-			const uint32_t threadsToUse = std::min(m_threads, sessionsToRun);
+			const uint64_t sessionsToRun = std::min(m_sessions - sessionsCompleted, sessionsTillEvolution());
+			const uint32_t threadsToUse = std::min(m_threads, static_cast<uint32_t>(sessionsToRun));
 			sessionsCounter = 0;
 
 			for (uint32_t i = 0; i < threadsToUse; ++i) {
@@ -1034,15 +1034,15 @@ protected:
 	NNPopulation<T>& m_trainee;
 
 	virtual std::vector<NNPPTrainingUpdate<T>> runSession(NeuronBuffer<T>& threadLocalNeuronBuffer) = 0;
-	virtual uint32_t sessionsTillEvolution() const = 0;
+	virtual uint64_t sessionsTillEvolution() const = 0;
 
 	virtual float getAvgScoreImportance() const { return 0.0f; }
 	virtual void setEvolutionInfo(EvolutionInfo<float>& /*evolutionInfo*/) const { }
 
 private:
-	uint32_t m_sessions;
+	uint64_t m_sessions;
 	uint32_t m_threads;
-	uint32_t m_totalSessionsCompleted;
+	uint64_t m_totalSessionsCompleted;
 	std::mutex m_onSessionCompleteMutex;
 	std::vector<NeuronBuffer<T>> m_perThreadNeuronBuffers;
 	EvolutionInfo<T> m_defaultEvolInfo;
@@ -1157,7 +1157,7 @@ protected:
 		return updates;
 	}
 
-	uint32_t sessionsTillEvolution() const override {
+	uint64_t sessionsTillEvolution() const override {
 		assert(NNPPTrainer<T>::m_trainee.getSessionsTrainedThisGen() <= 1);
 		return NNPPTrainer<T>::m_trainee.getSessionsTrainedThisGen() - 1;
 	}
