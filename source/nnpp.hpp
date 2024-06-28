@@ -122,7 +122,7 @@ public:
 			, m_dataSizePerLayer(std::move(other.m_dataSizePerLayer))
 			, m_numOfNeuronsPerLayer(std::move(other.m_numOfNeuronsPerLayer)) { }
 
-	inline constexpr NeuralNetwork(const NeuralNetwork<T>& n0, const NeuralNetwork<T>& n1, const EvolutionInfo<T>& evolutionInfo) {
+	inline NeuralNetwork(const NeuralNetwork<T>& n0, const NeuralNetwork<T>& n1, const EvolutionInfo<T>& evolutionInfo) {
 		initFromParents(n0, n1, evolutionInfo);
 	}
 
@@ -193,21 +193,21 @@ public:
 		}
 	}
 
-	inline constexpr void initDataVal(const T& val) {
+	inline void initDataVal(const T& val) {
 		for (uint64_t i = 0; i < getDataSize(); ++i) {
 			m_data[i] = val;
 		}
 		initBiasesVal(val);
 	}
 
-	inline constexpr void initBiasesVal(const T& val) {
+	inline void initBiasesVal(const T& val) {
 		const uint32_t biasesNum = getNumOfTotalNeurons();
 		for (uint32_t i = 0; i < biasesNum; ++i) {
 			m_neuronBiases[i] = val;
 		}
 	}
 
-	inline constexpr void initData(const std::vector<T>& data, const std::vector<T>& biases) {
+	inline void initData(const std::vector<T>& data, const std::vector<T>& biases) {
 		assert(data.size() == getDataSize());
 		assert(biases.size() == getNumOfTotalNeurons());
 		for (uint64_t i = 0; i < getDataSize(); ++i) {
@@ -220,21 +220,21 @@ public:
 		}
 	}
 
-	inline constexpr uint64_t getDataSize() const {
+	inline uint64_t getDataSize() const {
 		return m_dataSizePerLayer.back();
 	}
 
-	inline constexpr uint64_t getDataSizeForLayer(const uint64_t layer) const {
+	inline uint64_t getDataSizeForLayer(const uint64_t layer) const {
 		assert(layer < m_dataSizePerLayer.size());
 		return m_dataSizePerLayer[layer];
 	}
 
-	inline constexpr uint64_t getNumOfTotalNeurons() const {
+	inline uint64_t getNumOfTotalNeurons() const {
 		assert(m_numOfNeuronsPerLayer.back() == std::accumulate(m_layerSizes.begin(), m_layerSizes.end(), 0ull));
 		return m_numOfNeuronsPerLayer.back();
 	}
 
-	inline constexpr void randomizeDataUniform(const T& min, const T& max) {
+	inline void randomizeDataUniform(const T& min, const T& max) {
 		std::uniform_real_distribution<T> dist(min, max);
 		pcg_extras::seed_seq_from<std::random_device> seed;
 		pcg32_fast dev(seed);
@@ -376,12 +376,12 @@ private:
 	std::vector<uint64_t> m_dataSizePerLayer;
 	std::vector<uint32_t> m_numOfNeuronsPerLayer;
 
-	inline constexpr void initializeNetworkData() {
+	inline void initializeNetworkData() {
 		calculateDataSizes();
 		calculateNeuronSizes();
 	}
 
-	inline constexpr uint32_t weightIndex(const uint32_t fromNeuron, const uint32_t toNeuron, const uint32_t toLayer) const {
+	inline uint32_t weightIndex(const uint32_t fromNeuron, const uint32_t toNeuron, const uint32_t toLayer) const {
 		assert(toLayer > 0);
 		assert(toLayer < m_layerSizes.size());
 		assert(getDataSizeForLayer(toLayer)
@@ -392,30 +392,30 @@ private:
 			+ toNeuron;
 	}
 
-	inline constexpr uint32_t neuronBiasIndex(const uint32_t neuron, const uint32_t layer) const {
+	inline uint32_t neuronBiasIndex(const uint32_t neuron, const uint32_t layer) const {
 		assert(layer >= 0);
 		assert(layer < m_numOfNeuronsPerLayer.size());
 		assert(m_numOfNeuronsPerLayer[layer] + neuron < getNumOfTotalNeurons());
 		return m_numOfNeuronsPerLayer[layer] + neuron;
 	}
 
-	inline constexpr const T& weightAt(const uint32_t fromNeuron, const uint32_t toNeuron, const uint32_t toLayer) const {
+	inline const T& weightAt(const uint32_t fromNeuron, const uint32_t toNeuron, const uint32_t toLayer) const {
 		return m_data[weightIndex(fromNeuron, toNeuron, toLayer)];
 	}
 
-	inline constexpr const T& neuronBiasAt(const uint32_t neuron, const uint32_t layer) const {
+	inline const T& neuronBiasAt(const uint32_t neuron, const uint32_t layer) const {
 		return m_neuronBiases[neuronBiasIndex(neuron, layer)];
 	}
 
-	inline constexpr void setWeightAt(const uint32_t fromNeuron, const uint32_t toNeuron, const uint32_t toLayer, const T& value) {
+	inline void setWeightAt(const uint32_t fromNeuron, const uint32_t toNeuron, const uint32_t toLayer, const T& value) {
 		m_data[weightIndex(fromNeuron, toNeuron, toLayer)] = value;
 	}
 
-	inline constexpr void setNeuronBiasAt(const uint32_t neuron, const uint32_t layer, const T& value) {
+	inline void setNeuronBiasAt(const uint32_t neuron, const uint32_t layer, const T& value) {
 		m_neuronBiases[neuronBiasIndex(neuron, layer)] = value;
 	}
 
-	inline constexpr void latchInputs(const NNPPStackVector<T>& inputs, NeuronBuffer<T>& neurons) const {
+	inline void latchInputs(const NNPPStackVector<T>& inputs, NeuronBuffer<T>& neurons) const {
 		assert(inputs.size() == *m_layerSizes.begin());
 		assert(neurons.size() >= inputs.size() * 2);
 		for (uint32_t i = 0; i < inputs.size(); ++i) {
@@ -423,7 +423,7 @@ private:
 		}
 	}
 
-	inline constexpr void propagate(NeuronBuffer<T>& neurons) const {
+	inline void propagate(NeuronBuffer<T>& neurons) const {
 		// half size is where the array for copy dest begins
 		const uint64_t halfSize = (neurons.size() >> 1); // size / 2
 		for (uint32_t l = 1; l < m_layerSizes.size(); ++l) {
@@ -449,7 +449,7 @@ private:
 		std::cout << '\n';
 	}
 
-	inline constexpr NNPPStackVector<T> getOutputs(const NeuronBuffer<T>& neurons) const {
+	inline NNPPStackVector<T> getOutputs(const NeuronBuffer<T>& neurons) const {
 		NNPPStackVector<T> out;
 		for (uint i = 0; i < m_layerSizes.back(); ++i) {
 			out[i] = neurons[i];
@@ -457,7 +457,7 @@ private:
 		return out;
 	}
 
-	inline constexpr void calculateDataSizes() {
+	inline void calculateDataSizes() {
 		assert(m_layerSizes.size() > 1);
 		auto calculateDataSizeForLayer = [this](const uint64_t layer) {
 			assert(layer <= m_layerSizes.size());
@@ -474,7 +474,7 @@ private:
 		}
 	}
 
-	inline constexpr void calculateNeuronSizes() {
+	inline void calculateNeuronSizes() {
 		m_numOfNeuronsPerLayer.resize(m_layerSizes.size() + 1);
 		for (uint32_t i = 0; i < m_layerSizes.size(); ++i) {
 			m_numOfNeuronsPerLayer[i] = std::accumulate(m_layerSizes.begin(), m_layerSizes.begin() + i, 0ull);
@@ -630,53 +630,53 @@ public:
 		m_networks.clear();
 	}
 
-	inline constexpr NNPPStackVector<T> feedAt(const uint32_t index, const NNPPStackVector<T>& input, NeuronBuffer<T>& neuronBuffer) const {
+	inline NNPPStackVector<T> feedAt(const uint32_t index, const NNPPStackVector<T>& input, NeuronBuffer<T>& neuronBuffer) const {
 		assert(index < m_networks.size());
 		return m_networks[index].feed(input, neuronBuffer);
 	}
 
-	inline constexpr const NeuralNetwork<T>& getConstRefAt(const uint32_t index) const {
+	inline const NeuralNetwork<T>& getConstRefAt(const uint32_t index) const {
 		assert(index < m_networks.size());
 		return m_networks[index];
 	}
 
-	inline constexpr uint64_t getID() const {
+	inline uint64_t getID() const {
 		return m_id;
 	}
 
-	inline constexpr uint64_t getNetworksNumber() const {
+	inline uint64_t getNetworksNumber() const {
 		return m_networks.size();
 	}
 
-	inline constexpr uint64_t getSessionsTrained() const {
+	inline uint64_t getSessionsTrained() const {
 		return m_sessionsTrained;
 	}
 
-	inline constexpr void sessionCompleted() {
+	inline void sessionCompleted() {
 		m_sessionsTrained++;
 	}
 
-	inline constexpr void updateScoreReplace(float newScore) {
+	inline void updateScoreReplace(float newScore) {
 		m_score = newScore;
 	}
 
-	inline constexpr void updateScoreDelta(float deltaScore) {
+	inline void updateScoreDelta(float deltaScore) {
 		m_score += deltaScore;
 	}
 
-	inline constexpr float getScore() const {
+	inline float getScore() const {
 		return m_score;
 	}
 
-	inline constexpr float getAvgScore() const {
+	inline float getAvgScore() const {
 		return m_sessionsTrained == 0 ? 0.0f : m_score / static_cast<float>(m_sessionsTrained);
 	}
 
-	inline constexpr bool operator<(const NNAi& other) const {
+	inline bool operator<(const NNAi& other) const {
 		return m_score < other.m_score;
 	}
 
-	inline constexpr bool operator>(const NNAi& other) const {
+	inline bool operator>(const NNAi& other) const {
 		return m_score > other.m_score;
 	}
 
@@ -735,7 +735,7 @@ public:
 		return *this;
 	}
 
-	inline constexpr void createRandom(const T& min, const T& max) {
+	inline void createRandom(const T& min, const T& max) {
 		for (auto& nnai : m_population) {
 			nnai.initRandomUniform(min, max);
 		}
@@ -815,51 +815,51 @@ public:
 		m_nextID = 0;
 	}
 
-	inline constexpr void evolutionCompleted() {
+	inline void evolutionCompleted() {
 		m_generation++;
 		m_sessionsTrainedThisGen = 0;
 	}
 
-	inline constexpr void trainSessionCompleted() {
+	inline void trainSessionCompleted() {
 		m_sessionsTrained++;
 		m_sessionsTrainedThisGen++;
 	}
 
-	inline constexpr uint64_t getGenerartion() const {
+	inline uint64_t getGenerartion() const {
 		return m_generation;
 	}
 	
-	inline constexpr uint64_t getSessionsTrained() const {
+	inline uint64_t getSessionsTrained() const {
 		return m_sessionsTrained;
 	}
 
-	inline constexpr uint64_t getSessionsTrainedThisGen() const {
+	inline uint64_t getSessionsTrainedThisGen() const {
 		return m_sessionsTrainedThisGen;
 	}
 
-	inline constexpr uint64_t getPopulationSize() const {
+	inline uint64_t getPopulationSize() const {
 		return m_population.size();
 	}
 
-	inline constexpr NNAi<T>& getMinScoreNNAi() {
+	inline NNAi<T>& getMinScoreNNAi() {
 		return *std::min_element(m_population.begin(), m_population.end());
 	}
 
-	inline constexpr NNAi<T>& getMaxScoreNNAi() {
+	inline NNAi<T>& getMaxScoreNNAi() {
 		return *std::max_element(m_population.begin(), m_population.end());
 	}
 
-	inline constexpr void replace(uint32_t index, NNAi<T>&& replacement) {
+	inline void replace(uint32_t index, NNAi<T>&& replacement) {
 		assert(index < m_population.size());
 		m_population[index] = std::move(replacement);
 	}
 
-	inline constexpr const NNAi<T>& getNNAiAt(const uint32_t index) const {
+	inline const NNAi<T>& getNNAiAt(const uint32_t index) const {
 		assert(index < m_population.size());
 		return m_population[index];
 	}
 
-	inline constexpr NNAi<T>& getNNAiAt(const uint32_t index) {
+	inline NNAi<T>& getNNAiAt(const uint32_t index) {
 		assert(index < m_population.size());
 		return m_population[index];
 	}
@@ -882,11 +882,11 @@ public:
 		std::cout << "Avg score: " << avg << '\n';
 	}
 
-	inline constexpr const NNAi<T>& getBestNNAiConstRef() const {
+	inline const NNAi<T>& getBestNNAiConstRef() const {
 		return *std::max_element(m_population.begin(), m_population.end());
 	}
 
-	inline constexpr uint64_t assignNextID() {
+	inline uint64_t assignNextID() {
 		return m_nextID++;
 	}
 
@@ -1084,14 +1084,14 @@ private:
 					, evolutionInfo);
 	}
 
-	inline constexpr void onSessionComplete(const std::vector<NNPPTrainingUpdate<T>>& scoreUpdates) {
+	inline void onSessionComplete(const std::vector<NNPPTrainingUpdate<T>>& scoreUpdates) {
 		std::lock_guard<std::mutex> lock(m_onSessionCompleteMutex);
 		updateScores(scoreUpdates);
 		m_trainee.trainSessionCompleted();
 		m_totalSessionsCompleted++;
 	}
 
-	inline constexpr void updateScores(const std::vector<NNPPTrainingUpdate<T>>& scoreUpdates) const {
+	inline void updateScores(const std::vector<NNPPTrainingUpdate<T>>& scoreUpdates) const {
 		for (const auto& [nnai, deltaScore, replace] : scoreUpdates) {
 			nnai.sessionCompleted();
 			if (replace) {
@@ -1103,11 +1103,11 @@ private:
 		}
 	}
 
-	inline constexpr bool shouldEvolve() const {
+	inline bool shouldEvolve() const {
 		return sessionsTillEvolution() == 0;
 	}
 
-	inline constexpr float getFitnessForNNAi(const NNAi<T>& nnai) const {
+	inline float getFitnessForNNAi(const NNAi<T>& nnai) const {
 		const float avgImportance = std::max(0.0f, std::min(1.0f, getAvgScoreImportance()));
 		return avgImportance * nnai.getAvgScore() + (1.0f - avgImportance) * nnai.getScore();
 	}
